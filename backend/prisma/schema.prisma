@@ -9,6 +9,7 @@ datasource db {
 
 enum Role {
   ADMIN
+  ORGANIZER
   PARTICIPANT
 }
 
@@ -36,12 +37,13 @@ enum OtpPurpose {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
+  id        Int      @id @default(autoincrement())
+  name      String?
+  email     String   @unique
   password  String?
-  role      Role      @default(PARTICIPANT)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  role      Role     @default(PARTICIPANT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organizerProfile   OrganizerProfile?
   participantProfile ParticipantProfile?
@@ -50,26 +52,32 @@ model User {
   resetTokens PasswordResetToken[]
 }
 
-model OrganizerProfile {
-  id        Int    @id @default(autoincrement())
-  userId    Int    @unique
+model UnverifiedUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
   name      String
-  company   String?
-  bio       String?
-  website   String?
+  password  String
+  role      Role     @default(PARTICIPANT)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
 
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events    Event[]
+model OrganizerProfile {
+  id     Int    @id @default(autoincrement())
+  userId Int    @unique
+  name   String
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events Event[]
 }
 
 model ParticipantProfile {
-  id            Int    @id @default(autoincrement())
-  userId        Int    @unique
-  name          String
-  occupation    String?
-  preferences   Json?
+  id     Int    @id @default(autoincrement())
+  userId Int    @unique
+  name   String
 
-  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   participations EventParticipant[]
 }
 
@@ -100,8 +108,10 @@ model Attachment {
   eventId   Int
   url       String
   type      AttachmentType
+  publicId  String?
   createdAt DateTime       @default(now())
-  event     Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model EventParticipant {
@@ -112,10 +122,11 @@ model EventParticipant {
   answers       Json?
   joinedAt      DateTime            @default(now())
 
-  event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  participant   ParticipantProfile @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participant ParticipantProfile @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, participantId])
+  @@index([eventId, status])
 }
 
 model OTP {
@@ -128,18 +139,20 @@ model OTP {
   consumedAt DateTime?
   createdAt  DateTime   @default(now())
 
-  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   @@index([email, code])
 }
 
 model PasswordResetToken {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  token      String
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime  @default(now())
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  token     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([token])
 }

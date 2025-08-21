@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "public"."Role" AS ENUM ('ADMIN', 'PARTICIPANT');
+CREATE TYPE "public"."Role" AS ENUM ('ADMIN', 'ORGANIZER', 'PARTICIPANT');
 
 -- CreateEnum
 CREATE TYPE "public"."EventType" AS ENUM ('ONSITE', 'ONLINE');
@@ -16,6 +16,7 @@ CREATE TYPE "public"."OtpPurpose" AS ENUM ('LOGIN', 'SIGNUP', 'RESET');
 -- CreateTable
 CREATE TABLE "public"."User" (
     "id" SERIAL NOT NULL,
+    "name" TEXT,
     "email" TEXT NOT NULL,
     "password" TEXT,
     "role" "public"."Role" NOT NULL DEFAULT 'PARTICIPANT',
@@ -26,13 +27,24 @@ CREATE TABLE "public"."User" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."UnverifiedUser" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "role" "public"."Role" NOT NULL DEFAULT 'PARTICIPANT',
+    "token" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UnverifiedUser_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."OrganizerProfile" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
-    "company" TEXT,
-    "bio" TEXT,
-    "website" TEXT,
 
     CONSTRAINT "OrganizerProfile_pkey" PRIMARY KEY ("id")
 );
@@ -42,8 +54,6 @@ CREATE TABLE "public"."ParticipantProfile" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
-    "occupation" TEXT,
-    "preferences" JSONB,
 
     CONSTRAINT "ParticipantProfile_pkey" PRIMARY KEY ("id")
 );
@@ -74,6 +84,7 @@ CREATE TABLE "public"."Attachment" (
     "eventId" INTEGER NOT NULL,
     "url" TEXT NOT NULL,
     "type" "public"."AttachmentType" NOT NULL,
+    "publicId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Attachment_pkey" PRIMARY KEY ("id")
@@ -121,10 +132,19 @@ CREATE TABLE "public"."PasswordResetToken" (
 CREATE UNIQUE INDEX "User_email_key" ON "public"."User"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UnverifiedUser_email_key" ON "public"."UnverifiedUser"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "UnverifiedUser_token_key" ON "public"."UnverifiedUser"("token");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "OrganizerProfile_userId_key" ON "public"."OrganizerProfile"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ParticipantProfile_userId_key" ON "public"."ParticipantProfile"("userId");
+
+-- CreateIndex
+CREATE INDEX "EventParticipant_eventId_status_idx" ON "public"."EventParticipant"("eventId", "status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "EventParticipant_eventId_participantId_key" ON "public"."EventParticipant"("eventId", "participantId");

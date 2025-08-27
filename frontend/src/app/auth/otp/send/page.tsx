@@ -12,17 +12,18 @@ import {
   FormLabel,
   Input,
   Link as ChakraLink,
+  useToast,
 } from "@chakra-ui/react";
 import { Formik, Field, Form } from "formik";
 import * as Yup from "yup";
 import { motion } from "framer-motion";
-import { useDispatch } from "react-redux";
-import { setUser } from "@/state/redux/userSlice";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api/axios";
 import React, { useState } from "react";
-
+import { useUserStore } from "@/utils/stores/useUserStore";
+import { useCompanyStore } from "@/utils/stores/useCompanyStore";
+import axios from "axios";
 const MotionBox = motion(Box);
 const MotionHeading = motion(Heading);
 const MotionText = motion(Text);
@@ -33,15 +34,36 @@ const RequestSchema = Yup.object({
 });
 
 const VerifySchema = Yup.object({
-  otp: Yup.string().length(6, "Enter 6 digit OTP").required("OTP is required"),
+  code: Yup.string().length(6, "Enter 6 digit OTP").required("OTP is required"),
 });
 
 export default function OtpLoginPage() {
-  const dispatch = useDispatch();
+  const { setUser } = useUserStore();
+  const { setCompany } = useCompanyStore();
   const router = useRouter();
   const [step, setStep] = useState<"request" | "verify">("request");
   const [email, setEmail] = useState("");
+  const toast = useToast();
+  const setData = async (companyId: number, token: string, helpers: any) => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}company/${companyId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
+      setCompany(res.data.data);
+      localStorage.setItem("comapny", res.data.data);
+
+      router.push("/admin/dashboard");
+    } catch (err: any) {
+      console.error("Error fetching company:", err.response?.data || err.message);
+    } finally {
+      helpers.setSubmitting(false);
+    }
+
+  }
   return (
     <Box
       bg="gray.900"
@@ -90,9 +112,20 @@ export default function OtpLoginPage() {
               validationSchema={RequestSchema}
               onSubmit={async (values, helpers) => {
                 try {
-                  await api.post("/auth/otp/send", values);
+                  const data = await api.post("/auth/otp/send", { email: values.email, purpose: "LOGIN" });
+                  if (data.status === 200) {
+                    toast({
+                      title: "OTP Sent",
+                      description: "Please check your email for the OTP",
+                      status: "success",
+                      duration: 5000,
+                      isClosable: true,
+                      position: "top",
+                    });
+                  }
                   setEmail(values.email);
                   setStep("verify");
+
                 } catch (err: any) {
                   helpers.setStatus(
                     err?.response?.data?.error || "Failed to send OTP"
@@ -153,7 +186,7 @@ export default function OtpLoginPage() {
 
           {step === "verify" && (
             <Formik
-              initialValues={{ otp: "" }}
+              initialValues={{ code: "" }}
               validationSchema={VerifySchema}
               onSubmit={async (values, helpers) => {
                 try {
@@ -161,8 +194,13 @@ export default function OtpLoginPage() {
                     ...values,
                     email,
                   });
-                  dispatch(setUser(data.user ?? data));
-                  router.push("/events");
+                  setUser(data.user);
+                  console.log(data);
+                  localStorage.setItem("user", data.user);
+                  if (data?.user?.role === 'ADMIN' || data?.user?.role === 'ORGANIZER') {
+                    data?.user?.companyId ? setData(data?.user?.companyId, data?.token, helpers) : router.push("/onboarding");
+                    helpers.setSubmitting(false);
+                  }
                 } catch (err: any) {
                   helpers.setStatus(
                     err?.response?.data?.error || "Invalid OTP"
@@ -182,18 +220,18 @@ export default function OtpLoginPage() {
                         show: { opacity: 1, x: 0 },
                       }}
                     >
-                      <FormControl isInvalid={!!errors.otp && touched.otp}>
+                      <FormControl isInvalid={!!errors.code && touched.code}>
                         <FormLabel>Enter OTP</FormLabel>
                         <Field
                           as={Input}
-                          name="otp"
+                          name="code"
                           maxLength={6}
                           variant="filled"
                           bg="gray.700"
                           _hover={{ bg: "gray.600" }}
                           _focus={{ borderColor: "yellow.400", bg: "gray.600" }}
                         />
-                        <FormErrorMessage>{errors.otp}</FormErrorMessage>
+                        <FormErrorMessage>{errors.code}</FormErrorMessage>
                       </FormControl>
                     </MotionBox>
 

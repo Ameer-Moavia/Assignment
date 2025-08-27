@@ -2,7 +2,7 @@
 import { Container, Heading, Table, Tbody, Td, Th, Thead, Tr, Select, Button, useToast } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import api from "@/lib/api/axios";
-import { UserDTO } from "@/types";
+import { UserDTO } from "@/utils/types";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserDTO[]>([]);

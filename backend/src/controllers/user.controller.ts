@@ -28,5 +28,5 @@ export const updateRole = async (req: Request, res: Response) => {
 export const deleteUser = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   await prisma.user.delete({ where: { id } });
-  return res.json({ message: "User deleted" });
+  return res.json({ message: "User deleted",status: 200 });
 };

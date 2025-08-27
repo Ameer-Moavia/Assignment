@@ -1,5 +1,4 @@
 "use client";
-
 import {
   Box,
   Container,
@@ -16,11 +15,15 @@ import {
 import { Formik, Field, Form } from "formik";
 import * as Yup from "yup";
 import { motion } from "framer-motion";
-import { useDispatch } from "react-redux";
-import { setUser } from "@/state/redux/userSlice";
+import { useUserStore } from "@/utils/stores/useUserStore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api/axios";
+import Header from "@/components/layout/Header";
+import { useCompanyStore } from "@/utils/stores/useCompanyStore";
+import axios from "axios";
+
+
 
 const MotionBox = motion(Box);
 const MotionHeading = motion(Heading);
@@ -34,9 +37,35 @@ const Schema = Yup.object({
     .required("Password is required"),
 });
 
+
+
 export default function LoginPage() {
-  const dispatch = useDispatch();
+  const { setUser } = useUserStore();
+  const { setCompany } = useCompanyStore();
   const router = useRouter();
+
+
+
+  const setData = async (companyId: number,token: string, helpers: any) => {
+      try {
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}company/${companyId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    
+    setCompany(res.data.data);
+    localStorage.setItem("comapny", res.data.data);
+
+    router.push("/admin/dashboard");
+  } catch (err: any) {
+    console.error("Error fetching company:", err.response?.data || err.message);
+  }finally {
+    helpers.setSubmitting(false);
+  }
+
+  }
 
   return (
     <Box
@@ -48,6 +77,7 @@ export default function LoginPage() {
       justifyContent="center"
     >
       <Container maxW="xl" p={0}>
+        <Header />
         <Formik
           initialValues={{ email: "", password: "" }}
           validationSchema={Schema}
@@ -56,15 +86,17 @@ export default function LoginPage() {
               const { data } = await api.post("/auth/login", values);
 
               // Save user into Redux (you already set up userSlice)
-              dispatch(setUser(data.user));
+              setUser(data);
+              localStorage.setItem("user", data);
 
               // Redirect to events/dashboard
-              router.push("/events");
+              if (data?.user?.role === 'ADMIN' || data?.user?.role === 'ORGANIZER') {
+                data?.user?.companyId ? setData(data?.user?.companyId,data?.token, helpers) : router.push("/onboarding");
+                helpers.setSubmitting(false);
+              }
             } catch (err: any) {
               helpers.setStatus(err?.response?.data?.error || "Login failed");
-            } finally {
-              helpers.setSubmitting(false);
-            }
+            } 
           }}
         >
           {({ isSubmitting, errors, touched, status }) => (

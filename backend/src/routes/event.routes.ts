@@ -13,7 +13,7 @@ router.get("/", listEvents);
 router.get("/:id", getEvent);
 
 // Admin/Organizer
-router.post("/", requireAuth, requireRole("ADMIN", "ORGANIZER"), upload.array("attachments", 6), createEvent);
+router.post("/", requireAuth, requireRole("ADMIN", "ORGANIZER"), upload.array("files", 6), createEvent);
 router.patch("/:id", requireAuth, requireRole("ADMIN", "ORGANIZER"), updateEvent);
 router.delete("/:id", requireAuth, requireRole("ADMIN"), deleteEvent);
 router.get("/:id/participants", requireAuth, requireRole("ADMIN", "ORGANIZER"), listParticipants);

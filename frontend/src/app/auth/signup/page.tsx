@@ -14,15 +14,15 @@ import {
   Link as ChakraLink,
   Radio,
   RadioGroup,
+  useToast,
 } from "@chakra-ui/react";
 import { Formik, Field, Form } from "formik";
 import * as Yup from "yup";
 import { motion } from "framer-motion";
-import { useDispatch } from "react-redux";
-import { setUser } from "@/state/redux/userSlice";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api/axios";
+import Header from "@/components/layout/Header";
 
 const MotionBox = motion(Box);
 const MotionHeading = motion(Heading);
@@ -41,10 +41,11 @@ const Schema = Yup.object({
 });
 
 export default function SignupPage() {
-  const dispatch = useDispatch();
   const router = useRouter();
+  const toast = useToast();
 
   return (
+
     <Box
       bg="gray.900"
       color="white"
@@ -54,6 +55,7 @@ export default function SignupPage() {
       justifyContent="center"
     >
       <Container maxW="xl" p={0}>
+        <Header />
         <Formik
           initialValues={{ name: "", email: "", password: "", role: "PARTICIPANT" }}
           validationSchema={Schema}
@@ -61,9 +63,21 @@ export default function SignupPage() {
             try {
               const { data } = await api.post("/auth/signup", values);
 
-              // backend returns { message: "Verification email sent." }
-              // You can also auto-login if you modify backend to return user + token
-              router.push("/auth/verify"); 
+              if (data) {
+                toast({
+                  title: "Signup successful!",
+                  description: "Please verify your email to continue.",
+                  status: "success",
+                  duration: 5000,
+                  isClosable: true,
+                  position: "top",
+                });
+                values.email = "";
+                values.name = "";
+                values.password = "";
+                values.role = "PARTICIPANT";
+              }
+              // router.push("/auth/verify"); 
             } catch (err: any) {
               helpers.setStatus(err?.response?.data?.error || "Signup failed");
             } finally {
@@ -163,7 +177,6 @@ export default function SignupPage() {
                     <FormErrorMessage>{errors.email}</FormErrorMessage>
                   </FormControl>
                 </MotionBox>
-
                 {/* Password */}
                 <MotionBox
                   w="100%"
@@ -252,17 +265,17 @@ export default function SignupPage() {
 
                 {/* Links */}
                 <VStack spacing={2} fontSize="sm">
-                      <MotionText
-                                      variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
-                                    >
-                                      <ChakraLink
-                                        as={Link}
-                                        href="/auth/otp/signup"
-                                        color="yellow.400"
-                                      >
-                                        SignUp with OTP
-                                      </ChakraLink>
-                                    </MotionText>
+                  <MotionText
+                    variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+                  >
+                    <ChakraLink
+                      as={Link}
+                      href="/auth/otp/signup"
+                      color="yellow.400"
+                    >
+                      SignUp with OTP
+                    </ChakraLink>
+                  </MotionText>
                   <MotionText
                     variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
                   >

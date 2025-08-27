@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import api from "@/lib/api/axios";
-import { EventDTO, Paginated } from "@/types";
+import { EventDTO, Paginated } from "@/utils/types";
 import { Box, Container, Grid, GridItem, HStack, Input, Select, Spinner, Text } from "@chakra-ui/react";
 import EventCard from "@/components/events/EventCard";
 

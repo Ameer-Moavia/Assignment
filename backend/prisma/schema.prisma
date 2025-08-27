@@ -13,7 +13,7 @@ enum Role {
   PARTICIPANT
 }
 
-enum EventType {
+enum EventVisibility {
   ONSITE
   ONLINE
 }
@@ -21,6 +21,15 @@ enum EventType {
 enum AttachmentType {
   IMAGE
   VIDEO
+}
+enum EventType{
+WEBINAR
+SEMINAR
+WORKSHOP
+COMPETITION
+CONFERENCE
+OTHER
+
 }
 
 enum ParticipationStatus {
@@ -34,6 +43,12 @@ enum OtpPurpose {
   LOGIN
   SIGNUP
   RESET
+}
+enum Eventstatus{
+  CANCELLED
+  COMPLETED
+  DRAFT
+  ACTIVE
 }
 
 model User {
@@ -68,7 +83,31 @@ model OrganizerProfile {
   userId Int    @unique
   name   String
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Organizer belongs to a company
+  companyId Int?
+  company   Company? @relation("CompanyOrganizers", fields: [companyId], references: [id], onDelete: SetNull)
+
+  // If this organizer owns a company
+  ownedCompany Company? @relation("CompanyOwner")
+
+  events Event[]
+}
+
+model Company {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+
+  // Owner of the company
+  ownerId Int              @unique
+  owner   OrganizerProfile @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // All organizers associated with this company
+  organizers OrganizerProfile[] @relation("CompanyOrganizers")
+
+  // Company events
   events Event[]
 }
 
@@ -85,7 +124,7 @@ model Event {
   id               Int       @id @default(autoincrement())
   title            String
   description      String
-  type             EventType
+  type             EventVisibility
   venue            String?
   joinLink         String?
   contactInfo      String?
@@ -96,11 +135,14 @@ model Event {
   endDate          DateTime
   createdAt        DateTime  @default(now())
 
-  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  organizerId Int
-
+  organizer    OrganizerProfile   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  organizerId  Int
+  companyId    Int
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   attachments  Attachment[]
   participants EventParticipant[]
+  status       Eventstatus @default(ACTIVE)
+  TypeOfEvent  EventType
 }
 
 model Attachment {

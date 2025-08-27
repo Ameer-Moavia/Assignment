@@ -6,6 +6,6 @@ const router = Router();
 
 router.get("/", requireAuth, requireRole("ADMIN"), listUsers);
 router.patch("/:id/role", requireAuth, requireRole("ADMIN"), updateRole);
-router.delete("/:id", requireAuth, requireRole("ADMIN"), deleteUser);
+router.delete("/:id", requireAuth, requireRole("ORGANIZER"), deleteUser);
 
 export default router;

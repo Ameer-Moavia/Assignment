@@ -1,7 +1,7 @@
 "use client";
 import { Box, Heading, Text, Badge, HStack } from "@chakra-ui/react";
 import Link from "next/link";
-import { EventDTO } from "@/types";
+import { EventDTO } from "@/utils/types";
 import { DateTime } from "luxon";
 
 export default function EventCard({ e }: { e: EventDTO }) {

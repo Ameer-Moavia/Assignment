@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import api from "@/lib/api/axios";
-import { AttachmentDTO, EventDTO } from "@/types";
+import { AttachmentDTO, EventDTO } from "@/utils/types";
 import { Badge, Box, Button, Container, Grid, GridItem, Heading, Image, Text, useToast } from "@chakra-ui/react";
 import { DateTime } from "luxon";
 

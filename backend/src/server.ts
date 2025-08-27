@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import eventRoutes from "./routes/event.routes";
+import companyRoutes from "./routes/company.routes";
 import { errorMiddleware } from "./middlewares/error.middleware";
 
 dotenv.config();
@@ -19,6 +20,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/events", eventRoutes);
+app.use("/company", companyRoutes);
 
 app.use(errorMiddleware);
 

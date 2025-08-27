@@ -1,5 +1,5 @@
 "use client";
-import { AttachmentDTO, EventDTO } from "@/types";
+import { AttachmentDTO, EventDTO } from "@/utils/types";
 import { uploadToCloudinary } from "@/lib/cloudinary/upload";
 import { Button, FormControl, FormLabel, Grid, GridItem, HStack, Input, Select, Switch, Textarea, VStack, useToast } from "@chakra-ui/react";
 import { Field, Form, Formik } from "formik";
@@ -27,7 +27,7 @@ export default function EventForm() {
       const uploaded: AttachmentDTO[] = [];
       for (const f of files) {
         const u = await uploadToCloudinary(f);
-        uploaded.push({ url: u.secure_url, publicId: u.public_id, type: u.resource_type.startsWith("video") ? "VIDEO" : "IMAGE" });
+    //    uploaded.push({ url: u.secure_url, publicId: u.public_id, type: u.resource_type.startsWith("video") ? "VIDEO" : "IMAGE" });
       }
 
       const payload = { ...values, totalSeats: values.totalSeats || null, attachments: uploaded };

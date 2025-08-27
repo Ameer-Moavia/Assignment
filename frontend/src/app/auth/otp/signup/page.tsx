@@ -15,33 +15,36 @@ import {
     Radio,
     RadioGroup,
     Link as ChakraLink,
+    useToast,
 } from "@chakra-ui/react";
 import { Formik, Field, Form } from "formik";
 import * as Yup from "yup";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useDispatch } from "react-redux";
-import { setUser } from "@/state/redux/userSlice";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api/axios";
+import { useUserStore } from "@/utils/stores/useUserStore";
 
 const MotionBox = motion(Box);
 const MotionHeading = motion(Heading);
 const MotionText = motion(Text);
 const MotionButton = motion(Button);
 
+
 const RequestSchema = Yup.object({
     email: Yup.string().email("Invalid email").required("Email is required"),
     role: Yup.string().oneOf(["PARTICIPANT", "ORGANIZER"]).required("Select a role"),
+    name: Yup.string().min(2, "Name is too short").required("Name is required"),
 });
 
 const VerifySchema = Yup.object({
-    otp: Yup.string().length(6, "Enter 6 digit OTP").required("OTP is required"),
+    code: Yup.string().length(6, "Enter 6 digit OTP").required("OTP is required"),
 });
 
 export default function SignupOtpPage() {
-    const dispatch = useDispatch();
+    const toast = useToast();
     const router = useRouter();
+    const { setUser } = useUserStore();
     const [step, setStep] = useState<"request" | "verify">("request");
     const [formData, setFormData] = useState<{ email: string; role: string }>({
         email: "",
@@ -84,13 +87,25 @@ export default function SignupOtpPage() {
 
                     {step === "request" && (
                         <Formik
-                            initialValues={{ email: "", role: "PARTICIPANT" }}
+                            initialValues={{ name: "", email: "", role: "PARTICIPANT" }}
                             validationSchema={RequestSchema}
                             onSubmit={async (values, helpers) => {
                                 try {
-                                    await api.post("/auth/otp/signup/send", values);
+
+                                    const data = await api.post("/auth/otp/send", { email: values.email, purpose: "SIGNUP" });
+                                    if (data.status === 200) {
+                                        toast({
+                                            title: "OTP Sent",
+                                            description: "Please check your email for the OTP",
+                                            status: "success",
+                                            duration: 5000,
+                                            isClosable: true,
+                                            position: "top",
+                                        });
+                                    }
                                     setFormData(values);
                                     setStep("verify");
+
                                 } catch (err: any) {
                                     helpers.setStatus(err?.response?.data?.error || "Failed to send OTP");
                                 } finally {
@@ -98,9 +113,32 @@ export default function SignupOtpPage() {
                                 }
                             }}
                         >
-                            {({ isSubmitting, errors, touched, status, setFieldValue }) => (
+                            {({ isSubmitting, errors, touched, status, setFieldValue, values }) => (
                                 <Form style={{ width: "100%" }}>
                                     <VStack spacing={6} w="100%">
+                                        <div>{JSON.stringify(values)}</div>
+
+                                        {/* Name */}
+                                        <MotionBox
+                                            w="100%"
+                                            variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}
+                                        >
+                                            <FormControl isInvalid={!!errors.name && touched.name}>
+                                                <FormLabel>Name</FormLabel>
+                                                <Field
+                                                    as={Input}
+                                                    name="name"
+                                                    type="text"
+                                                    placeholder="Enter your name"
+                                                    variant="filled"
+                                                    bg="gray.700"
+                                                    _hover={{ bg: "gray.600" }}
+                                                    _focus={{ borderColor: "yellow.400", bg: "gray.600" }}
+                                                />
+                                                <FormErrorMessage>{errors.name}</FormErrorMessage>
+                                            </FormControl>
+                                        </MotionBox>
+
                                         {/* Email */}
                                         <MotionBox
                                             w="100%"
@@ -132,8 +170,10 @@ export default function SignupOtpPage() {
                                                     {({ field }: any) => (
                                                         <RadioGroup
                                                             {...field}
-                                                            onChange={(val) =>
-                                                                setFieldValue("role", val)
+                                                            onChange={(e) => {
+                                                                console.log("RadioGroup onChange", e);
+                                                                setFieldValue("role", e);
+                                                            }
                                                             }
                                                             value={field.value}
                                                         >
@@ -169,16 +209,23 @@ export default function SignupOtpPage() {
 
                     {step === "verify" && (
                         <Formik
-                            initialValues={{ otp: "" }}
+                            initialValues={{ code: "" }}
                             validationSchema={VerifySchema}
                             onSubmit={async (values, helpers) => {
+
+                                <div>{JSON.stringify(formData)}</div>
+
                                 try {
-                                    const { data } = await api.post("/auth/otp/signup/verify", {
+
+                                    const { data } = await api.post("/auth/otp/verify", {
                                         ...values,
                                         ...formData,
+
                                     });
-                                    dispatch(setUser(data.user ?? data));
-                                    router.push("/events");
+                                    // Save user into Zustand
+                                    setUser(data);
+                                    localStorage.setItem("user", data);
+                                    router.push("/onboarding");
                                 } catch (err: any) {
                                     helpers.setStatus(err?.response?.data?.error || "Invalid OTP");
                                 } finally {
@@ -193,18 +240,18 @@ export default function SignupOtpPage() {
                                             w="100%"
                                             variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}
                                         >
-                                            <FormControl isInvalid={!!errors.otp && touched.otp}>
+                                            <FormControl isInvalid={!!errors.code && touched.code}>
                                                 <FormLabel>Enter OTP</FormLabel>
                                                 <Field
                                                     as={Input}
-                                                    name="otp"
+                                                    name="code"
                                                     maxLength={6}
                                                     variant="filled"
                                                     bg="gray.700"
                                                     _hover={{ bg: "gray.600" }}
                                                     _focus={{ borderColor: "yellow.400", bg: "gray.600" }}
                                                 />
-                                                <FormErrorMessage>{errors.otp}</FormErrorMessage>
+                                                <FormErrorMessage>{errors.code}</FormErrorMessage>
                                             </FormControl>
                                         </MotionBox>
 

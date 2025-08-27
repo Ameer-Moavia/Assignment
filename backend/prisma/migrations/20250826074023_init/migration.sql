@@ -2,16 +2,22 @@
 CREATE TYPE "public"."Role" AS ENUM ('ADMIN', 'ORGANIZER', 'PARTICIPANT');
 
 -- CreateEnum
-CREATE TYPE "public"."EventType" AS ENUM ('ONSITE', 'ONLINE');
+CREATE TYPE "public"."EventVisibility" AS ENUM ('ONSITE', 'ONLINE');
 
 -- CreateEnum
 CREATE TYPE "public"."AttachmentType" AS ENUM ('IMAGE', 'VIDEO');
+
+-- CreateEnum
+CREATE TYPE "public"."EventType" AS ENUM ('WEBINAR', 'SEMINAR', 'WORKSHOP', 'COMPETITION', 'CONFERENCE', 'OTHER');
 
 -- CreateEnum
 CREATE TYPE "public"."ParticipationStatus" AS ENUM ('PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "public"."OtpPurpose" AS ENUM ('LOGIN', 'SIGNUP', 'RESET');
+
+-- CreateEnum
+CREATE TYPE "public"."Eventstatus" AS ENUM ('CANCELLED', 'COMPLETED', 'DRAFT', 'ACTIVE');
 
 -- CreateTable
 CREATE TABLE "public"."User" (
@@ -45,8 +51,19 @@ CREATE TABLE "public"."OrganizerProfile" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
+    "companyId" INTEGER,
 
     CONSTRAINT "OrganizerProfile_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."Company" (
+    "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "ownerId" INTEGER NOT NULL,
+
+    CONSTRAINT "Company_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -63,7 +80,7 @@ CREATE TABLE "public"."Event" (
     "id" SERIAL NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT NOT NULL,
-    "type" "public"."EventType" NOT NULL,
+    "type" "public"."EventVisibility" NOT NULL,
     "venue" TEXT,
     "joinLink" TEXT,
     "contactInfo" TEXT,
@@ -74,6 +91,9 @@ CREATE TABLE "public"."Event" (
     "endDate" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "organizerId" INTEGER NOT NULL,
+    "companyId" INTEGER NOT NULL,
+    "status" "public"."Eventstatus" NOT NULL DEFAULT 'ACTIVE',
+    "TypeOfEvent" "public"."EventType" NOT NULL,
 
     CONSTRAINT "Event_pkey" PRIMARY KEY ("id")
 );
@@ -141,6 +161,9 @@ CREATE UNIQUE INDEX "UnverifiedUser_token_key" ON "public"."UnverifiedUser"("tok
 CREATE UNIQUE INDEX "OrganizerProfile_userId_key" ON "public"."OrganizerProfile"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Company_ownerId_key" ON "public"."Company"("ownerId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ParticipantProfile_userId_key" ON "public"."ParticipantProfile"("userId");
 
 -- CreateIndex
@@ -159,10 +182,19 @@ CREATE INDEX "PasswordResetToken_token_idx" ON "public"."PasswordResetToken"("to
 ALTER TABLE "public"."OrganizerProfile" ADD CONSTRAINT "OrganizerProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "public"."OrganizerProfile" ADD CONSTRAINT "OrganizerProfile_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."Company" ADD CONSTRAINT "Company_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "public"."OrganizerProfile"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "public"."ParticipantProfile" ADD CONSTRAINT "ParticipantProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."Event" ADD CONSTRAINT "Event_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "public"."OrganizerProfile"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."Event" ADD CONSTRAINT "Event_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."Attachment" ADD CONSTRAINT "Attachment_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "public"."Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;

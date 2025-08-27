@@ -49,28 +49,61 @@ export const verifyEmail = async (req: Request, res: Response) => {
   try {
     const { token } = req.query;
     if (!token || typeof token !== "string") {
-      return res.status(400).json({ error: "Invalid token" });
+      return res.status(400).json({
+        error: "Invalid token",
+        status: 400
+      });
     }
 
     const pending = await prisma.unverifiedUser.findUnique({ where: { token } });
-    if (!pending || pending.expiresAt < new Date()) {
-      return res.status(400).json({ error: "Token expired or invalid" });
+
+    if (!pending) {
+      return res.status(404).json({
+        error: "Invalid token or user already verified",
+        status: 404
+      });
     }
 
+    if (pending.expiresAt < new Date()) {
+      return res.status(410).json({
+        error: "Token expired",
+        status: 410
+      });
+    }
     // Move data into User
-    await prisma.$transaction([
-      prisma.user.create({
-        data: {
-          email: pending.email,
-          name: pending.name,
-          password: pending.password,
-          role: pending.role,
-        },
-      }),
-      prisma.unverifiedUser.delete({ where: { id: pending.id } }),
-    ]);
+   await prisma.$transaction(async (tx) => {
+  const user = await tx.user.create({
+    data: {
+      email: pending.email,
+      name: pending.name,
+      password: pending.password,
+      role: pending.role,
+    },
+  });
 
-    return res.json({ message: "Email verified. You can now login." });
+  if (pending.role === "ORGANIZER") {
+    await tx.organizerProfile.create({
+      data: {
+        userId: user.id,
+        name: user.name ?? "Unnamed Organizer",
+      },
+    });
+  }
+
+  if (pending.role === "PARTICIPANT") {
+    await tx.participantProfile.create({
+      data: {
+        userId: user.id,
+        name: user.name ?? "Unnamed Participant",
+      },
+    });
+  }
+
+  await tx.unverifiedUser.delete({ where: { id: pending.id } });
+});
+
+
+    return res.status(201).json({ message: "Email verified. You can now login.", status: 201 });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Server error" });
@@ -80,21 +113,54 @@ export const verifyEmail = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body as { email: string; password: string };
-    if (!email || !password) return res.status(400).json({ error: "email & password required" });
+    if (!email || !password) {
+      return res.status(400).json({ error: "email & password required" });
+    }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.password) return res.status(401).json({ error: "Invalid credentials" });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        organizerProfile: true,
+        participantProfile: true,
+      },
+    });
+
+    if (!user || !user.password) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     const ok = await comparePassword(password, user.password);
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     const token = makeJWT({ id: user.id, email: user.email, role: user.role });
-    return res.json({ user: { id: user.id, email: user.email, role: user.role }, token });
+
+    let profileId: number | null = null;
+    let companyId: number | null = null;
+    if (user.role === "ORGANIZER" && user.organizerProfile) {
+      profileId = user.organizerProfile.id;
+      companyId = user.organizerProfile.companyId;
+    } else if (user.role === "PARTICIPANT" && user.participantProfile) {
+      profileId = user.participantProfile.id;
+    }
+
+    return res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        profileId, // <-- organizerProfile.id or participantProfile.id
+        companyId, // <-- for organizers
+      },
+      token,
+    });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Server error" });
   }
 };
+
 
 // Send OTP (purpose: LOGIN | SIGNUP | RESET)
 // src/controllers/auth.controller.ts
@@ -106,25 +172,26 @@ export const sendOtp = async (req: Request, res: Response) => {
     };
 
     if (!email || !purpose)
-      return res.status(400).json({ error: "Email and purpose required" });
+      return res.status(400).json({ error: "Email and purpose required" , status:400});
     if (!["LOGIN", "SIGNUP", "RESET"].includes(purpose))
-      return res.status(400).json({ error: "Invalid purpose" });
+      return res.status(400).json({ error: "Invalid purpose" , status:400});
 
     const user = await prisma.user.findUnique({ where: { email } });
 
     // 🔹 Purpose specific checks
     if (purpose === "SIGNUP" && user) {
-      return res.status(409).json({ error: "User already exists" });
+      return res.status(409).json({ error: "User already exists", status:409 });
     }
     if (purpose === "LOGIN" && !user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found", status:404 });
     }
     if (purpose === "RESET" && !user) {
       // don’t leak info, same as requestPasswordReset
-      return res.json({ message: "If email exists, OTP will be sent" });
+      return res.status(200).json({ message: "If email exists, OTP will be sent", status:200 });
     }
 
     // Generate OTP
+    await prisma.oTP.deleteMany({ where: { email } });
     const code = generateOtp();
     const ttl = Number(process.env.OTP_TTL_MINUTES || 10);
     const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
@@ -149,7 +216,14 @@ export const sendOtp = async (req: Request, res: Response) => {
 // Verify OTP
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-    const { email, code, purpose, name, role } = req.body as { email: string; code: string; purpose?: "LOGIN" | "SIGNUP" | "RESET"; name?: string; role?: Role };
+    const { email, code, purpose, name, role } = req.body as { 
+      email: string; 
+      code: string; 
+      purpose?: "LOGIN" | "SIGNUP" | "RESET"; 
+      name?: string; 
+      role?: Role 
+    };
+
     if (!email || !code) return res.status(400).json({ error: "email & code required" });
 
     const otp = await prisma.oTP.findFirst({
@@ -158,9 +232,15 @@ export const verifyOtp = async (req: Request, res: Response) => {
     });
     if (!otp) return res.status(400).json({ error: "Invalid or expired OTP" });
 
-    let user = await prisma.user.findUnique({ where: { email } });
+    let user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        participantProfile: true,
+        organizerProfile: true,
+      },
+    });
 
-    // SIGNUP: only participants can self-signup
+    // --- SIGNUP ---
     if (otp.purpose === "SIGNUP") {
       if (user) {
         return res.status(409).json({ error: "User already exists" });
@@ -169,35 +249,69 @@ export const verifyOtp = async (req: Request, res: Response) => {
         data: {
           email,
           name: name || email.split("@")[0],
-          role: "PARTICIPANT",
-          participantProfile: { create: { name: name || email.split("@")[0] } }
-        }
+          role: role,
+          participantProfile: role === "PARTICIPANT" 
+            ? { create: { name: name || email.split("@")[0] } } 
+            : undefined,
+          organizerProfile: role === "ORGANIZER"
+            ? { create: { name: name || email.split("@")[0] } }
+            : undefined,
+        },
+        include: {
+          participantProfile: true,
+          organizerProfile: true,
+        },
       });
-    } else if (otp.purpose === "LOGIN") {
+    }
+
+    // --- LOGIN ---
+    if (otp.purpose === "LOGIN") {
       if (!user) return res.status(404).json({ error: "User not found" });
-    } else if (otp.purpose === "RESET") {
+    }
+
+    // --- RESET ---
+    if (otp.purpose === "RESET") {
       if (!user) return res.status(404).json({ error: "User not found" });
-      // create a temporary password reset token record
       const token = generateResetToken();
       const ttl = Number(process.env.RESET_TTL_MINUTES || 60);
       const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
       await prisma.passwordResetToken.create({ data: { userId: user.id, token, expiresAt } });
-      // consume otp
       await prisma.oTP.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
       return res.json({ message: "OTP verified for reset", resetToken: token });
     }
 
-    // consume OTP
+    // Consume OTP
     await prisma.oTP.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
 
-    // return JWT
+    // Make JWT
     const token = makeJWT({ id: user!.id, email: user!.email, role: user!.role });
-    return res.json({ message: "OTP verified", user: { id: user!.id, email: user!.email, role: user!.role }, token });
+
+    // Build profile + company info like in login
+    let profileId: number | null = null;
+    let companyId: number | null = null;
+    if (user!.role === "ORGANIZER" && user!.organizerProfile) {
+      profileId = user!.organizerProfile.id;
+      companyId = user!.organizerProfile.companyId ?? 0;
+    } else if (user!.role === "PARTICIPANT" && user!.participantProfile) {
+      profileId = user!.participantProfile.id;
+    }
+
+    return res.json({
+      user: {
+        id: user!.id,
+        email: user!.email,
+        role: user!.role,
+        profileId,
+        companyId,
+      },
+      token,
+    });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Server error" });
   }
 };
+
 
 export const requestPasswordReset = async (req: Request, res: Response) => {
   try {

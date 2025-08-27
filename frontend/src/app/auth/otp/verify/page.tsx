@@ -3,8 +3,6 @@ import { Button, Container, FormControl, FormErrorMessage, FormLabel, Input, Sel
 import { Formik, Field, Form } from "formik";
 import * as Yup from "yup";
 import api from "@/lib/api/axios";
-import { useDispatch } from "react-redux";
-import { setUser } from "@/state/redux/userSlice";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const Schema = Yup.object({
@@ -15,7 +13,6 @@ const Schema = Yup.object({
 });
 
 export default function VerifyOtpPage() {
-const dispatch = useDispatch();
 const router = useRouter();
 const qs = useSearchParams();
 const getParam = (key: string, fallback = "") => qs?.get(key) ?? fallback;
@@ -39,7 +36,6 @@ const purpose = getParam("purpose", "LOGIN");
                 role: purpose === "SIGNUP" ? values.role : undefined,
                 name: purpose === "SIGNUP" ? values.name : undefined
               });
-              dispatch(setUser(data.user ?? data));
               router.push("/events");
             } catch (err: any) {
               helpers.setStatus(err?.response?.data?.error || "OTP verification failed");

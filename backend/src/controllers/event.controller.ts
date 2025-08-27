@@ -11,16 +11,14 @@ export const createEvent = async (req: Request, res: Response) => {
       title, description, type,
       venue, joinLink, contactInfo,
       totalSeats, requiresApproval, joinQuestions,
-      startDate, endDate
+      startDate, endDate,companyId,organizerId, status,TypeOfEvent
     } = req.body as any;
 
     if (!title || !description || !type || !startDate || !endDate) return res.status(400).json({ error: "Missing required fields" });
 
     // ensure organizer profile
-    let organizer = await prisma.organizerProfile.findUnique({ where: { userId: me.id } });
-    if (!organizer) {
-      organizer = await prisma.organizerProfile.create({ data: { userId: me.id, name: me.email } });
-    }
+
+   if(!req.files?.length)return res.status(400).json({ error: "At least one attachment is required" });
 
     // attachments uploaded by multer-cloudinary available in req.files
     const files = req.files as Express.Multer.File[] | undefined;
@@ -42,8 +40,11 @@ export const createEvent = async (req: Request, res: Response) => {
         joinQuestions: joinQuestions ? JSON.parse(joinQuestions) : undefined,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        organizerId: organizer.id,
-        attachments: attachmentsData.length ? { create: attachmentsData } : undefined
+        organizerId:Number(organizerId),
+        companyId:Number(companyId),
+        attachments: attachmentsData.length ? { create: attachmentsData } : undefined,
+        status: status ?? "ACTIVE",         // ✅ added
+        TypeOfEvent: TypeOfEvent,
       },
       include: { attachments: true, organizer: true }
     });

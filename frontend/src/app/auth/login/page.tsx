@@ -93,6 +93,9 @@ export default function LoginPage() {
               if (data?.user?.role === 'ADMIN' || data?.user?.role === 'ORGANIZER') {
                 data?.user?.companyId ? setData(data?.user?.companyId,data?.token, helpers) : router.push("/onboarding");
                 helpers.setSubmitting(false);
+              }else if(data?.user?.role === 'PARTICIPANT'){
+                router.push("/participant/dashboard");
+                helpers.setSubmitting(false);
               }
             } catch (err: any) {
               helpers.setStatus(err?.response?.data?.error || "Login failed");

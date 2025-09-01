@@ -194,7 +194,7 @@ export default function OtpLoginPage() {
                     ...values,
                     email,
                   });
-                  setUser(data.user);
+                  setUser(data);
                   console.log(data);
                   localStorage.setItem("user", data.user);
                   if (data?.user?.role === 'ADMIN' || data?.user?.role === 'ORGANIZER') {

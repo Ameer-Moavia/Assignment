@@ -71,36 +71,36 @@ export const verifyEmail = async (req: Request, res: Response) => {
       });
     }
     // Move data into User
-   await prisma.$transaction(async (tx) => {
-  const user = await tx.user.create({
-    data: {
-      email: pending.email,
-      name: pending.name,
-      password: pending.password,
-      role: pending.role,
-    },
-  });
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: pending.email,
+          name: pending.name,
+          password: pending.password,
+          role: pending.role,
+        },
+      });
 
-  if (pending.role === "ORGANIZER") {
-    await tx.organizerProfile.create({
-      data: {
-        userId: user.id,
-        name: user.name ?? "Unnamed Organizer",
-      },
+      if (pending.role === "ORGANIZER") {
+        await tx.organizerProfile.create({
+          data: {
+            userId: user.id,
+            name: user.name ?? "Unnamed Organizer",
+          },
+        });
+      }
+
+      if (pending.role === "PARTICIPANT") {
+        await tx.participantProfile.create({
+          data: {
+            userId: user.id,
+            name: user.name ?? "Unnamed Participant",
+          },
+        });
+      }
+
+      await tx.unverifiedUser.delete({ where: { id: pending.id } });
     });
-  }
-
-  if (pending.role === "PARTICIPANT") {
-    await tx.participantProfile.create({
-      data: {
-        userId: user.id,
-        name: user.name ?? "Unnamed Participant",
-      },
-    });
-  }
-
-  await tx.unverifiedUser.delete({ where: { id: pending.id } });
-});
 
 
     return res.status(201).json({ message: "Email verified. You can now login.", status: 201 });
@@ -121,7 +121,7 @@ export const login = async (req: Request, res: Response) => {
       where: { email },
       include: {
         organizerProfile: true,
-        participantProfile: true,
+        participantProfile: { include: { participations: true } },
       },
     });
 
@@ -144,17 +144,32 @@ export const login = async (req: Request, res: Response) => {
     } else if (user.role === "PARTICIPANT" && user.participantProfile) {
       profileId = user.participantProfile.id;
     }
+    if (user.role === "ORGANIZER" || user.role === "ADMIN") {
+      return res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          profileId, // <-- organizerProfile.id or participantProfile.id
+          companyId, // <-- for organizers
 
-    return res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        profileId, // <-- organizerProfile.id or participantProfile.id
-        companyId, // <-- for organizers
-      },
-      token,
-    });
+        },
+        token,
+      });
+    } else if (user.role === "PARTICIPANT") {
+      return res.json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          profileId, // <-- organizerProfile.id or participantProfile.id
+          partticipations: user.participantProfile?.participations
+        },
+        token,
+      });
+    }
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Server error" });
@@ -172,22 +187,22 @@ export const sendOtp = async (req: Request, res: Response) => {
     };
 
     if (!email || !purpose)
-      return res.status(400).json({ error: "Email and purpose required" , status:400});
+      return res.status(400).json({ error: "Email and purpose required", status: 400 });
     if (!["LOGIN", "SIGNUP", "RESET"].includes(purpose))
-      return res.status(400).json({ error: "Invalid purpose" , status:400});
+      return res.status(400).json({ error: "Invalid purpose", status: 400 });
 
     const user = await prisma.user.findUnique({ where: { email } });
 
     // 🔹 Purpose specific checks
     if (purpose === "SIGNUP" && user) {
-      return res.status(409).json({ error: "User already exists", status:409 });
+      return res.status(409).json({ error: "User already exists", status: 409 });
     }
     if (purpose === "LOGIN" && !user) {
-      return res.status(404).json({ error: "User not found", status:404 });
+      return res.status(404).json({ error: "User not found", status: 404 });
     }
     if (purpose === "RESET" && !user) {
       // don’t leak info, same as requestPasswordReset
-      return res.status(200).json({ message: "If email exists, OTP will be sent", status:200 });
+      return res.status(200).json({ message: "If email exists, OTP will be sent", status: 200 });
     }
 
     // Generate OTP
@@ -216,12 +231,12 @@ export const sendOtp = async (req: Request, res: Response) => {
 // Verify OTP
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-    const { email, code, purpose, name, role } = req.body as { 
-      email: string; 
-      code: string; 
-      purpose?: "LOGIN" | "SIGNUP" | "RESET"; 
-      name?: string; 
-      role?: Role 
+    const { email, code, purpose, name, role } = req.body as {
+      email: string;
+      code: string;
+      purpose?: "LOGIN" | "SIGNUP" | "RESET";
+      name?: string;
+      role?: Role
     };
 
     if (!email || !code) return res.status(400).json({ error: "email & code required" });
@@ -250,8 +265,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
           email,
           name: name || email.split("@")[0],
           role: role,
-          participantProfile: role === "PARTICIPANT" 
-            ? { create: { name: name || email.split("@")[0] } } 
+          participantProfile: role === "PARTICIPANT"
+            ? { create: { name: name || email.split("@")[0] } }
             : undefined,
           organizerProfile: role === "ORGANIZER"
             ? { create: { name: name || email.split("@")[0] } }
@@ -291,7 +306,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
     let companyId: number | null = null;
     if (user!.role === "ORGANIZER" && user!.organizerProfile) {
       profileId = user!.organizerProfile.id;
-      companyId = user!.organizerProfile.companyId ?? 0;
+      companyId = user!.organizerProfile.companyId;
     } else if (user!.role === "PARTICIPANT" && user!.participantProfile) {
       profileId = user!.participantProfile.id;
     }
@@ -303,6 +318,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         role: user!.role,
         profileId,
         companyId,
+        name:user!.name
       },
       token,
     });

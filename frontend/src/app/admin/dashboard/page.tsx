@@ -62,7 +62,22 @@ import {
   MenuDivider,
   InputGroup,
   InputLeftElement,
-  FormErrorMessage
+  FormErrorMessage,
+  RadioGroup,
+  Radio,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
+  Tag,
+  TagLabel,
+  TagLeftIcon,
+  Spinner,
+  Center,
+  Tooltip
 } from '@chakra-ui/react';
 import {
   FaPlus,
@@ -99,12 +114,14 @@ import {
   FaArrowRight,
   FaArrowLeft,
   FaMinus,
-
+  FaCheckCircle,
+  FaHourglassHalf,
+  FaUser
 } from 'react-icons/fa';
 import { BiRefresh } from 'react-icons/bi';
 import { Formik, Form, FieldArray } from "formik";
 import * as Yup from "yup";
-import { apiFormData } from "@/utils/Functions/helperApi";
+import { api, apiFormData } from "@/utils/Functions/helperApi";
 import { useUserStore } from "@/utils/stores/useUserStore";
 import { useCompanyStore } from '@/utils/stores/useCompanyStore';
 import Header from '@/components/layout/Header';
@@ -114,145 +131,111 @@ const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
 const MotionButton = motion.create(Button);
 
-
-
-// Mock data structure matching your backend
-const mockEvents = [
-  {
-    id: 1,
-    title: "Tech Innovation Summit 2025",
-    description: "Join industry leaders for cutting-edge discussions on AI, blockchain, and the future of technology. Network with innovators and discover game-changing solutions.",
-    type: "CONFERENCE",
-    venue: "Silicon Valley Convention Center",
-    joinLink: "https://zoom.us/j/123456789",
-    contactInfo: "contact@techsummit.com",
-    totalSeats: 500,
-    requiresApproval: true,
-    startDate: "2025-09-15T09:00:00Z",
-    endDate: "2025-09-17T18:00:00Z",
-    organizerId: 1,
-    companyId: 1,
-    attachments: [
-      { url: "/api/placeholder/800/400", type: "IMAGE" },
-      { url: "/api/placeholder/800/400", type: "IMAGE" }
-    ],
-    organizer: { name: "Sarah Johnson", email: "sarah@company.com" },
-    participants: 127,
-    approved: 98,
-    pending: 29,
-    status: "ACTIVE"
-  },
-  {
-    id: 2,
-    title: "Digital Marketing Masterclass",
-    description: "Learn advanced strategies for social media marketing, SEO optimization, and conversion rate optimization from industry experts.",
-    type: "WORKSHOP",
-    venue: null,
-    joinLink: "https://meet.google.com/abc-defg-hij",
-    contactInfo: "info@marketingclass.com",
-    totalSeats: 50,
-    requiresApproval: false,
-    startDate: "2025-08-30T14:00:00Z",
-    endDate: "2025-08-30T17:00:00Z",
-    organizerId: 2,
-    companyId: 1,
-    attachments: [
-      { url: "/api/placeholder/800/400", type: "IMAGE" }
-    ],
-    organizer: { name: "Mike Chen", email: "mike@company.com" },
-    participants: 45,
-    approved: 45,
-    pending: 0,
-    status: "ACTIVE"
-  },
-  {
-    id: 3,
-    title: "Startup Pitch Competition",
-    description: "Emerging entrepreneurs present their innovative ideas to a panel of investors. Winner receives $100K funding and mentorship program.",
-    type: "COMPETITION",
-    venue: "Innovation Hub Auditorium",
-    joinLink: null,
-    contactInfo: "startups@innovationhub.com",
-    totalSeats: 200,
-    requiresApproval: true,
-    startDate: "2025-09-22T19:00:00Z",
-    endDate: "2025-09-22T22:00:00Z",
-    organizerId: 1,
-    companyId: 1,
-    attachments: [
-      { url: "/api/placeholder/800/400", type: "IMAGE" },
-      { url: "/api/placeholder/800/400", type: "VIDEO" }
-    ],
-    organizer: { name: "Sarah Johnson", email: "sarah@company.com" },
-    participants: 78,
-    approved: 60,
-    pending: 18,
-    status: "DRAFT"
-  }
-];
-
+// Types
 type Visibility = "ONLINE" | "ONSITE";
-type EventCategory = "CONFERENCE" | "WORKSHOP" | "SEMINAR" | "WEBINAR" | "COMPETITION";
+type EventCategory = "CONFERENCE" | "WORKSHOP" | "SEMINAR" | "WEBINAR" | "COMPETITION" | "OTHER";
 type AttachmentType = "IMAGE" | "VIDEO";
+type StatusType = "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+type ParticipationStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED";
 
-type FormValues = {
-  title: string;
-  description: string;
-  TypeOfEvent: EventCategory;     // Conference / Workshop / ...
-  type: Visibility;               // ONLINE / ONSITE (EventVisibility)
-  venue: string;
-  joinLink: string;
-  contactInfo: string;
-  totalSeats: string;             // we’ll coerce to number | null on submit
-  requiresApproval: boolean;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  attachments: { url: string; type: AttachmentType }[];
-  // UI helper: multiline string; we'll convert to array (JSON) on submit
-  joinQuestionsText: string;
-};
-
-
-type EventType = {
+type Event = {
   id: number;
   title: string;
   description: string;
-  type: string;
-  venue: string | null;
-  joinLink: string | null;
+  type: Visibility;
+  venue?: string;
+  joinLink?: string;
   contactInfo: string;
-  totalSeats: number | null;
+  totalSeats?: number;
   requiresApproval: boolean;
   startDate: string;
   endDate: string;
   organizerId: number;
   companyId: number;
-  // attachments: { file: File }[] | { url: string; type: AttachmentType }[]; // for create: file upload; for edit: existing urls
-  attachments: any; // for create: file upload; for edit: existing urls
-  organizer: { name: string; email: string };
-  participants: any;
-  approved: number;
-  pending: number;
-  status: string;
+  joinQuestions?: string[] | string; // Add this line
+  attachments: Array<{
+    id: number;
+    url: string;
+    type: AttachmentType;
+    publicId?: string;
+    file?: any;
+  }>;
+  organizer: {
+    id: number;
+    name: string;
+  };
+  company: {
+    id: number;
+    name: string;
+  };
+  confirmedParticipants: number;
+  TypeOfEvent: EventCategory;
+  status: StatusType;
+  _count?: {
+    participants: number;
+  };
 };
+
+type Participant = {
+  id: number;
+  eventId: number;
+  participantId: number;
+  status: ParticipationStatus;
+  answers: Record<string, any>;
+  joinedAt: string;
+  participant: {
+    id: number;
+    name: string;
+    user: {
+      id: number;
+      email: string;
+    };
+  };
+};
+
+type FormAttachment = {
+  url: string;
+  type: AttachmentType;
+  file?: File;          // new uploads
+  id?: number;          // existing from DB
+  publicId?: string;    // existing from DB
+};
+
+type FormValues = {
+  title: string;
+  description: string;
+  TypeOfEvent: EventCategory;
+  type: Visibility;
+  venue: string;
+  joinLink: string;
+  contactInfo: string;
+  totalSeats: string;
+  requiresApproval: boolean;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  attachments: FormAttachment[];
+  joinQuestionsText: string;
+  status: StatusType;
+};
+
 
 const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEventModalProps) => {
   const toast = useToast();
-
-
   const cardBg = useColorModeValue("gray.800", "gray.900");
   const inputBg = useColorModeValue("gray.700", "gray.800");
   const borderColor = useColorModeValue("gray.600", "gray.700");
 
-  // --- Validation schema
+  // Get today's date in YYYY-MM-DD format for minimum date validation
+  const today = new Date().toISOString().split('T')[0];
+
+  // Validation schema
   const Schema = Yup.object({
     title: Yup.string().trim().min(3, "Title is too short").required("Title is required"),
     description: Yup.string().trim().min(10, "Please add more details").required("Description is required"),
-    TypeOfEvent: Yup.mixed<EventCategory>().oneOf(["CONFERENCE", "WORKSHOP", "SEMINAR", "WEBINAR", "COMPETITION"]).required(),
+    TypeOfEvent: Yup.mixed<EventCategory>().oneOf(["CONFERENCE", "WORKSHOP", "SEMINAR", "WEBINAR", "COMPETITION", "OTHER"]).required(),
     type: Yup.mixed<Visibility>().oneOf(["ONLINE", "ONSITE"]).required("Visibility is required"),
-    // Conditional fields:
     venue: Yup.string().when("type", {
       is: "ONSITE",
       then: (s) => s.trim().min(3, "Venue is too short").required("Venue is required for onsite events"),
@@ -271,7 +254,13 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
     totalSeats: Yup.string()
       .matches(/^\d*$/, "Total seats must be a number")
       .test("nonNegative", "Total seats must be 0 or greater", (v) => (v ? parseInt(v, 10) >= 0 : true)),
-    startDate: Yup.string().required("Start date is required"),
+    startDate: Yup.string()
+      .required("Start date is required")
+      .test("notPastDate", "Start date cannot be in the past", function (value) {
+        // Only validate for new events, not for editing existing events
+        if (event || !value) return true;
+        return value >= today;
+      }),
     startTime: Yup.string().required("Start time is required"),
     endDate: Yup.string()
       .required("End date is required")
@@ -286,30 +275,47 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
     attachments: Yup.array()
       .of(
         Yup.object({
-          // Remove file validation from schema since we handle it in UI
           type: Yup.mixed<AttachmentType>()
             .oneOf(["IMAGE", "VIDEO"])
             .required("Attachment type is required"),
-          url: Yup.string().optional(), // For preview
-          file: Yup.mixed<File>().optional(), // For actual file upload
+          url: Yup.string().optional(),
+          file: Yup.mixed<File>().optional(),  // ✅
+          publicId: Yup.string().optional(),
+          id: Yup.number().optional(),
         })
       )
       .test("hasFiles", "Please add at least one file", (value) => {
-        return value && value.some((att: any) => att.file instanceof File);
+        return value && value.some((att: any) =>
+          att.file instanceof File || (att.url && att.id) // Existing attachment has id and url
+        );
       }),
-
     joinQuestionsText: Yup.string().max(2000, "Too long"),
     requiresApproval: Yup.boolean(),
+    status: Yup.mixed<StatusType>().oneOf(["DRAFT", "ACTIVE", "COMPLETED", "CANCELLED"]).required(),
   });
 
-  // Initial values (supporting old event shape during transition)
+  // Parse join questions from existing event
+  const parseJoinQuestions = (event: Event | null) => {
+    if (!event) return "";
+
+    // Check if joinQuestions exists and handle different formats
+    if (event.joinQuestions) {
+      if (Array.isArray(event.joinQuestions)) {
+        return event.joinQuestions.join("\n");
+      }
+      if (typeof event.joinQuestions === 'string') {
+        return event.joinQuestions;
+      }
+    }
+    return "";
+  };
+
+  // Initial values
   const initialValues: FormValues = {
     title: event?.title ?? "",
     description: event?.description ?? "",
-    TypeOfEvent: (event as any)?.TypeOfEvent ?? (event?.type as EventCategory) ?? "CONFERENCE",
-    type:
-      // Infer ONLINE/ONSITE from fields if editing an older event
-      (event?.joinLink ? "ONLINE" : "ONSITE") as Visibility,
+    TypeOfEvent: event?.TypeOfEvent ?? "CONFERENCE",
+    type: event?.type ?? (event?.joinLink ? "ONLINE" : "ONSITE"),
     venue: event?.venue ?? "",
     joinLink: event?.joinLink ?? "",
     contactInfo: event?.contactInfo ?? "",
@@ -319,11 +325,20 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
     endDate: event ? new Date(event.endDate).toISOString().slice(0, 10) : "",
     startTime: event ? new Date(event.startDate).toTimeString().slice(0, 5) : "",
     endTime: event ? new Date(event.endDate).toTimeString().slice(0, 5) : "",
-    attachments:
-      event?.attachments?.length
-        ? event.attachments.map((a: any) => ({ url: a.url, type: (a.type as AttachmentType) ?? "IMAGE" }))
-        : [{ url: "", type: "IMAGE" }],
-    joinQuestionsText: "", // user can paste questions (one per line)
+    attachments: event?.attachments?.length
+      ? [
+        ...event.attachments.map((a) => ({
+          url: a.url,
+          type: a.type,
+          publicId: a.publicId,
+          id: a.id,
+          file: undefined // ✅ never null
+        })),
+        { url: "", type: "IMAGE", file: undefined }
+      ]
+      : [{ url: "", type: "IMAGE", file: undefined }],
+    joinQuestionsText: parseJoinQuestions(event),
+    status: event?.status ?? "DRAFT",
   };
 
   return (
@@ -347,7 +362,6 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
           initialValues={initialValues}
           validationSchema={Schema}
           onSubmit={async (values, { setSubmitting }) => {
-            console.log(values);
             try {
               const startDateTime = new Date(`${values.startDate}T${values.startTime}`);
               const endDateTime = new Date(`${values.endDate}T${values.endTime}`);
@@ -359,25 +373,35 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                   .filter(Boolean)
                 : undefined;
 
+              // Separate existing and new attachments
+              const existingAttachments = values.attachments.filter(att => att.id && att.url);
+              const newAttachments = values.attachments.filter(att => att.file instanceof File);
+
+
               const payload = {
                 title: values.title,
                 description: values.description,
-                // schema-aligned:
-                type: values.type, // EventVisibility
-                TypeOfEvent: values.TypeOfEvent, // EventType (Conference/Workshop/...)
+                type: values.type,
+                TypeOfEvent: values.TypeOfEvent,
                 venue: values.type === "ONSITE" ? values.venue || null : null,
                 joinLink: values.type === "ONLINE" ? values.joinLink || null : null,
                 contactInfo: values.contactInfo,
                 totalSeats: values.totalSeats ? parseInt(values.totalSeats, 10) : null,
                 requiresApproval: values.requiresApproval,
-                joinQuestions: joinQuestions?.length ? joinQuestions : undefined, // JSON[]
+                joinQuestions: joinQuestions?.length ? joinQuestions : undefined,
                 startDate: startDateTime.toISOString(),
                 endDate: endDateTime.toISOString(),
-                // attachments for backend create: [{url, type}]
-                attachments: values.attachments,
+                attachments: newAttachments, // Only new files for FormData
+                existingAttachments: existingAttachments.map(att => ({
+                  id: att.id,
+                  url: att.url,
+                  type: att.type,
+                  publicId: att.publicId
+                })), // Existing attachments to keep
+                status: values.status,
               };
 
-              await onSave(payload);
+              await onSave(payload, event?.id);
               onClose();
             } catch (err) {
               toast({
@@ -447,6 +471,7 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                         <option value="SEMINAR">Seminar</option>
                         <option value="WEBINAR">Webinar</option>
                         <option value="COMPETITION">Competition</option>
+                        <option value="OTHER">Other</option>
                       </Select>
                       <FormErrorMessage>{errors.TypeOfEvent as string}</FormErrorMessage>
                     </FormControl>
@@ -459,7 +484,6 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                         onChange={(e) => {
                           const v = e.target.value as Visibility;
                           setFieldValue("type", v);
-                          // reset the other field when switching
                           if (v === "ONLINE") setFieldValue("venue", "");
                           if (v === "ONSITE") setFieldValue("joinLink", "");
                         }}
@@ -558,6 +582,7 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                         borderColor={borderColor}
                         _hover={{ borderColor: "yellow.400" }}
                         _focus={{ borderColor: "yellow.400", boxShadow: "0 0 0 1px #fbbf24" }}
+                        min={event ? undefined : today} // Only restrict for new events
                       />
                       <FormErrorMessage>{errors.startDate as string}</FormErrorMessage>
                     </FormControl>
@@ -590,6 +615,7 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                         borderColor={borderColor}
                         _hover={{ borderColor: "yellow.400" }}
                         _focus={{ borderColor: "yellow.400", boxShadow: "0 0 0 1px #fbbf24" }}
+                        min={values.startDate || (event ? undefined : today)}
                       />
                       <FormErrorMessage>{errors.endDate as string}</FormErrorMessage>
                     </FormControl>
@@ -623,7 +649,7 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                   </FormControl>
 
                   {/* Join Questions (optional) */}
-                  <FormControl>
+                  <FormControl isInvalid={!!(touched.joinQuestionsText && errors.joinQuestionsText)}>
                     <FormLabel color="gray.300">Joining Questions (optional)</FormLabel>
                     <Textarea
                       name="joinQuestionsText"
@@ -636,6 +662,7 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                       _focus={{ borderColor: "yellow.400", boxShadow: "0 0 0 1px #fbbf24" }}
                       rows={3}
                     />
+                    <FormErrorMessage>{errors.joinQuestionsText as string}</FormErrorMessage>
                   </FormControl>
 
                   {/* Attachments */}
@@ -645,102 +672,248 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                     <FieldArray name="attachments">
                       {({ remove, push }) => (
                         <VStack align="stretch" spacing={3}>
-                          {values.attachments.map((att, idx) => (
-                            <HStack key={idx} spacing={3} align="start">
-                              {/* Type selector */}
-                              <Select
-                                value={att.type}
-                                onChange={(e) => setFieldValue(`attachments.${idx}.type`, e.target.value)}
-                                bg={inputBg}
-                                borderColor={borderColor}
-                                _hover={{ borderColor: "yellow.400" }}
-                                w="32%"
+                          {values.attachments.map((att, idx) => {
+                            const isExisting = Boolean(att.id && att.url && !att.file);
+
+                            return (
+                               <Card key={idx} bg="gray.700" border="1px" borderColor={borderColor} p={4}>
+                                <VStack spacing={3} align="stretch">
+                                  <HStack spacing={3} align="start">
+                                    {/* Type selector */}
+                                    <Select
+                                      value={att.type}
+                                      onChange={(e) => setFieldValue(`attachments.${idx}.type`, e.target.value)}
+                                      bg={inputBg}
+                                      borderColor={borderColor}
+                                      _hover={{ borderColor: "yellow.400" }}
+                                      w="32%"
+                                      isDisabled={isExisting} // Don't allow changing type of existing attachments
+                                    >
+                                      <option value="IMAGE">Image</option>
+                                      <option value="VIDEO">Video</option>
+                                    </Select>
+
+                                    {/* File input for new attachments */}
+                                    {!isExisting && (
+                                      <Input
+                                        type="file"
+                                        accept={att.type === "IMAGE" ? "image/*" : "video/*"}
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file) return;
+
+                                          if (file.size > 5 * 1024 * 1024) {
+                                            toast({
+                                              title: "File too large",
+                                              description: "Maximum allowed size is 5MB.",
+                                              status: "error",
+                                              duration: 4000,
+                                              isClosable: true,
+                                              position: "top",
+                                            });
+                                            e.target.value = '';
+                                            return;
+                                          }
+
+                                          if (
+                                            (att.type === "IMAGE" && !file.type.startsWith("image/")) ||
+                                            (att.type === "VIDEO" && !file.type.startsWith("video/"))
+                                          ) {
+                                            toast({
+                                              title: "Invalid file type",
+                                              description: `Please select a ${att.type.toLowerCase()} file.`,
+                                              status: "error",
+                                              duration: 4000,
+                                              isClosable: true,
+                                              position: "top",
+                                            });
+                                            e.target.value = '';
+                                            return;
+                                          }
+
+                                          setFieldValue(`attachments.${idx}.file`, file);
+                                          const previewUrl = URL.createObjectURL(file);
+                                          setFieldValue(`attachments.${idx}.url`, previewUrl);
+                                          // Remove id to mark as new
+                                          setFieldValue(`attachments.${idx}.id`, undefined);
+                                        }}
+                                      />
+                                    )}
+
+                                    <IconButton
+                                      aria-label="Remove"
+                                      icon={<FaTrash />}
+                                      variant="ghost"
+                                      color="red.400"
+                                      onClick={() => remove(idx)}
+                                      _hover={{ bg: "red.900" }}
+                                    />
+                                  </HStack>
+
+                                  {/* Preview existing attachments */}
+                                  {isExisting && (
+                                    <Box>
+                                      <HStack justify="space-between" mb={2}>
+                                        <Text fontSize="sm" color="gray.400">
+                                          Existing {att.type.toLowerCase()}
+                                        </Text>
+                                        <Badge colorScheme="green" size="sm">
+                                          Saved
+                                        </Badge>
+                                      </HStack>
+                                      {att.type === "IMAGE" ? (
+                                        <Image
+                                          src={att.url}
+                                          alt="Existing attachment"
+                                          maxH="150px"
+                                          w="full"
+                                          objectFit="cover"
+                                          borderRadius="md"
+                                          border="1px"
+                                          borderColor={borderColor}
+                                        />
+                                      ) : (
+                                        <Box
+                                          p={4}
+                                          bg="gray.600"
+                                          borderRadius="md"
+                                          border="1px"
+                                          borderColor={borderColor}
+                                          textAlign="center"
+                                        >
+                                          <VStack spacing={2}>
+                                            <FaVideo size="24px" color="#718096" />
+                                            <Text fontSize="sm" color="gray.400">
+                                              Video attachment
+                                            </Text>
+                                          </VStack>
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  )}
+
+                                  {/* Preview new file uploads */}
+                                  {!isExisting && att.url && att.file && (
+                                    <Box>
+                                      <Text fontSize="sm" color="gray.400" mb={2}>
+                                        Preview:
+                                      </Text>
+                                      {att.type === "IMAGE" ? (
+                                        <Image
+                                          src={att.url}
+                                          alt="Preview"
+                                          maxH="150px"
+                                          w="full"
+                                          objectFit="cover"
+                                          borderRadius="md"
+                                          border="1px"
+                                          borderColor={borderColor}
+                                        />
+                                      ) : (
+                                        <Box
+                                          p={4}
+                                          bg="gray.600"
+                                          borderRadius="md"
+                                          border="1px"
+                                          borderColor={borderColor}
+                                          textAlign="center"
+                                        >
+                                          <VStack spacing={2}>
+                                            <FaVideo size="24px" color="#718096" />
+                                            <Text fontSize="sm" color="gray.400">
+                                              {att.file?.name}
+                                            </Text>
+                                          </VStack>
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  )}
+
+                                  {/* Show empty state for new attachment slots */}
+                                  {!isExisting && !att.file && (
+                                    <Box
+                                      p={6}
+                                      border="2px dashed"
+                                      borderColor="gray.600"
+                                      borderRadius="md"
+                                      textAlign="center"
+                                    >
+                                      <VStack spacing={2}>
+                                        <Box color="gray.500">
+                                          {att.type === "IMAGE" ? <FaImage size="24px" /> : <FaVideo size="24px" />}
+                                        </Box>
+                                        <Text fontSize="sm" color="gray.500">
+                                          No {att.type.toLowerCase()} selected
+                                        </Text>
+                                      </VStack>
+                                    </Box>
+                                  )}
+                                </VStack>
+                              </Card>
+                            );
+                          })}
+
+                          {/* ✅ New Add Button with limit + counter */}
+                          <HStack spacing={3} align="center">
+                            <Tooltip
+                              label="Maximum 6 attachments allowed"
+                              isDisabled={values.attachments.length < 6}
+                            >
+                              <Button
+                                leftIcon={<FaPlus />}
+                                variant="outline"
+                                borderColor="gray.600"
+                                color="gray.300"
+                                _hover={{ borderColor: "yellow.400", color: "yellow.400" }}
+                                onClick={() =>
+                                  push({ url: "", type: "IMAGE" as AttachmentType, file: undefined, id: undefined })
+                                }
+                                size="sm"
+                                alignSelf="flex-start"
+                                isDisabled={values.attachments.length >= 6}
                               >
-                                <option value="IMAGE">Image</option>
-                                <option value="VIDEO">Video</option>
-                              </Select>
+                                Add New Attachment
+                              </Button>
+                            </Tooltip>
 
-                              {/* File input */}
-                              <Input
-                                type="file"
-                                accept={att.type === "IMAGE" ? "image/*" : "video/*"}
-                                onChange={(e) => {
-                                  console.log("🔹 File input changed:", e.target.files);
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-
-                                  if (file.size > 5 * 1024 * 1024) {
-                                    console.log("🔹 File too large:", file.size);
-                                    toast({
-                                      title: "File too large",
-                                      description: "Maximum allowed size is 5MB.",
-                                      status: "error",
-                                      duration: 4000,
-                                      isClosable: true,
-                                      position: "top",
-                                    });
-                                    // Reset the file input
-                                    e.target.value = '';
-                                    return;
-                                  }
-
-                                  // Validate file type
-                                  if (
-                                    (att.type === "IMAGE" && !file.type.startsWith("image/")) ||
-                                    (att.type === "VIDEO" && !file.type.startsWith("video/"))
-                                  ) {
-                                    toast({
-                                      title: "Invalid file type",
-                                      description: `Please select a ${att.type.toLowerCase()} file.`,
-                                      status: "error",
-                                      duration: 4000,
-                                      isClosable: true,
-                                      position: "top",
-                                    });
-                                    e.target.value = '';
-                                    return;
-                                  }
-
-                                  // Store both file object and preview URL
-                                  setFieldValue(`attachments.${idx}.file`, file);
-                                  const previewUrl = URL.createObjectURL(file);
-                                  setFieldValue(`attachments.${idx}.url`, previewUrl);
-
-                                  console.log(`🔹 File ${idx} set:`, file.name, file.size, file.type);
-                                }}
-                              />
-
-                              <IconButton
-                                aria-label="Remove"
-                                icon={<FaTrash />}
-                                variant="ghost"
-                                color="red.400"
-                                onClick={() => remove(idx)}
-                              />
-                            </HStack>
-                          ))}
-
-                          <Button
-                            leftIcon={<FaPlus />}
-                            variant="outline"
-                            borderColor="gray.600"
-                            color="gray.300"
-                            _hover={{ borderColor: "yellow.400", color: "yellow.400" }}
-                            onClick={() => push({ url: "", type: "IMAGE" as AttachmentType })}
-                            size="sm"
-                            alignSelf="flex-start"
-                          >
-                            Add Attachment
-                          </Button>
+                            <Text fontSize="sm" color={values.attachments.length >= 6 ? "red.400" : "gray.400"}>
+                              {values.attachments.length} / 6 attachments
+                            </Text>
+                          </HStack>
                         </VStack>
                       )}
                     </FieldArray>
+
 
                     <FormErrorMessage>
                       {typeof errors.attachments === "string" ? errors.attachments : undefined}
                     </FormErrorMessage>
                   </FormControl>
 
+                  {/* Status Selection */}
+                  <FormControl isRequired isInvalid={!!(touched.status && errors.status)}>
+                    <FormLabel color="gray.300">Event Status</FormLabel>
+                    <RadioGroup
+                      value={values.status}
+                      onChange={(val) => setFieldValue("status", val)}
+                    >
+                      <HStack spacing={6}>
+                        <Radio value="DRAFT" colorScheme="yellow">
+                          Draft
+                        </Radio>
+                        <Radio value="ACTIVE" colorScheme="green">
+                          Active
+                        </Radio>
+                        <Radio value="COMPLETED" colorScheme="blue">
+                          Completed
+                        </Radio>
+                        <Radio value="CANCELLED" colorScheme="red">
+                          Cancelled
+                        </Radio>
+                      </HStack>
+                    </RadioGroup>
+                    <FormErrorMessage>{errors.status as string}</FormErrorMessage>
+                  </FormControl>
                 </VStack>
               </ModalBody>
 
@@ -773,13 +946,14 @@ const EventCard = ({
   event,
   onEdit,
   onDelete,
-  onView
+  onView,
+  onManageParticipants
 }: {
-  event: EventType;
-  onEdit: (event: EventType) => void;
-  onDelete: (event: EventType) => void;
-  onView: (event: EventType) => void;
-  onDuplicate: (event: EventType) => void;
+  event: Event;
+  onEdit: (event: Event) => void;
+  onDelete: (event: Event) => void;
+  onView: (event: Event) => void;
+  onManageParticipants: (event: Event) => void;
 }) => {
   const cardBg = useColorModeValue("gray.800", "gray.900");
   const borderColor = useColorModeValue("gray.600", "gray.700");
@@ -790,20 +964,25 @@ const EventCard = ({
       WORKSHOP: "green",
       COMPETITION: "purple",
       SEMINAR: "orange",
-      WEBINAR: "teal"
+      WEBINAR: "teal",
+      OTHER: "gray"
     };
     return colors[type as keyof typeof colors] || "gray";
   };
 
-  const getStatusColor = (status: string) => {
-    const colors = {
+
+
+  const getStatusColor = (status: StatusType) => {
+    const colors: Record<StatusType, string> = {
       ACTIVE: "green",
       DRAFT: "yellow",
       COMPLETED: "gray",
-      CANCELLED: "red"
+      CANCELLED: "red",
     };
-    return colors[status as keyof typeof colors] || "gray";
+
+    return colors[status];
   };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -839,10 +1018,7 @@ const EventCard = ({
       <Box position="relative">
         {event.attachments?.[0] && (
           <Image
-            src={
-              event.attachments[0].url ||
-              (event.attachments[0].file ? URL.createObjectURL(event.attachments[0].file) : undefined)
-            }
+            src={event.attachments[0].url}
             alt={event.title}
             h="200px"
             w="full"
@@ -861,22 +1037,12 @@ const EventCard = ({
           />
         )}
 
-        <Box
-          position="absolute"
-          top={3}
-          left={3}
-          zIndex={2}
-        >
-          <Badge colorScheme={getEventTypeColor(event.type)} size="sm" borderRadius="md">
-            {event.type}
+        <Box position="absolute" top={3} left={3} zIndex={2}>
+          <Badge colorScheme={getEventTypeColor(event.TypeOfEvent)} size="sm" borderRadius="md">
+            {event.TypeOfEvent}
           </Badge>
         </Box>
-        <Box
-          position="absolute"
-          top={3}
-          right={3}
-          zIndex={2}
-        >
+        <Box position="absolute" top={3} right={3} zIndex={2}>
           <Badge colorScheme={getStatusColor(event.status)} size="sm" borderRadius="md">
             {event.status}
           </Badge>
@@ -896,7 +1062,6 @@ const EventCard = ({
             +{event.attachments.length - 1} more
           </Box>
         )}
-
       </Box>
 
       <CardBody p={6}>
@@ -947,12 +1112,12 @@ const EventCard = ({
             <HStack justify="space-between" mb={2}>
               <Text fontSize="sm" color="gray.300">Participants</Text>
               <Text fontSize="sm" color="yellow.400" fontWeight="bold">
-                {event.participants}/{event.totalSeats || '∞'}
+                {event.confirmedParticipants}/{event.totalSeats || '∞'}
               </Text>
             </HStack>
             {event.totalSeats && (
               <Progress
-                value={(event.participants / event.totalSeats) * 100}
+                value={(event.confirmedParticipants / event.totalSeats) * 100}
                 size="sm"
                 colorScheme="yellow"
                 borderRadius="full"
@@ -960,29 +1125,14 @@ const EventCard = ({
               />
             )}
             <HStack justify="space-between" mt={2} fontSize="xs" color="gray.400">
-              <HStack>
-                <FaCheck color="#48BB78" />
-                <Text>
-                  Approved:{" "}
-                  {/* {event.participants?.filter((p: any) => p.status === "CONFIRMED").length || 0} */}
-                </Text>
-              </HStack>
-
-              <HStack>
-                <FaClock color="#ED8936" />
-                <Text>
-                  Pending:{" "}
-                  {/* {event.participants?.filter((p: any) => p.status === "PENDING").length || 0} */}
-                </Text>
-              </HStack>
+              <Text>by {event.organizer?.name}</Text>
             </HStack>
-
           </Box>
 
           <HStack justify="space-between" align="center">
             <HStack>
-              <Avatar size="sm" name={event.organizer.name} />
-              <Text fontSize="sm" color="gray.300">{event.organizer.name}</Text>
+              <Avatar size="sm" name={event.organizer?.name} />
+              <Text fontSize="sm" color="gray.300">{event.organizer?.name}</Text>
             </HStack>
             <Menu>
               <MenuButton
@@ -1010,15 +1160,10 @@ const EventCard = ({
                 </MenuItem>
                 <MenuItem
                   icon={<FaUsers />}
+                  onClick={() => onManageParticipants(event)}
                   _hover={{ bg: "gray.700" }}
                 >
                   Manage Participants
-                </MenuItem>
-                <MenuItem
-                  icon={<FaShare />}
-                  _hover={{ bg: "gray.700" }}
-                >
-                  Share Event
                 </MenuItem>
                 <MenuDivider />
                 <MenuItem
@@ -1038,89 +1183,268 @@ const EventCard = ({
   );
 };
 
+const ParticipantsModal = ({ isOpen, onClose, event }: { isOpen: boolean; onClose: () => void; event: Event | null }) => {
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const toast = useToast();
+  const cardBg = useColorModeValue("gray.800", "gray.900");
+  const borderColor = useColorModeValue("gray.600", "gray.700");
+
+  useEffect(() => {
+    if (isOpen && event) {
+      fetchParticipants();
+    }
+  }, [isOpen, event]);
+
+  const fetchParticipants = async () => {
+    try {
+      setLoading(true);
+      const response = await api().get(`/events/${event?.id}/participants`);
+      setParticipants(response.data);
+    } catch (error) {
+      console.error('Failed to fetch participants:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load participants",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveParticipant = async (participantId: number) => {
+    try {
+      await api().post(`/events/${event?.id}/participants/${participantId}/approve`);
+      toast({
+        title: "Success",
+        description: "Participant approved successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      fetchParticipants(); // Refresh the list
+    } catch (error) {
+      console.error('Failed to approve participant:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve participant",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'CONFIRMED': return 'green';
+      case 'PENDING': return 'orange';
+      case 'REJECTED': return 'red';
+      case 'CANCELLED': return 'gray';
+      default: return 'gray';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'CONFIRMED': return FaCheckCircle;
+      case 'PENDING': return FaHourglassHalf;
+      case 'REJECTED': return FaTimes;
+      case 'CANCELLED': return FaTimes;
+      default: return FaUser;
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="4xl">
+      <ModalOverlay bg="blackAlpha.800" />
+      <ModalContent bg={cardBg} border="1px" borderColor={borderColor} maxH="80vh">
+        <ModalHeader>
+          <HStack>
+            <Box p={2} borderRadius="lg" bg="blue.400" color="white">
+              <FaUsers />
+            </Box>
+            <Heading size="lg" color="white">
+              Participants for {event?.title}
+            </Heading>
+          </HStack>
+        </ModalHeader>
+        <ModalCloseButton color="gray.400" />
+        <ModalBody overflowY="auto">
+          {loading ? (
+            <Center py={8}>
+              <Spinner size="xl" color="yellow.400" />
+            </Center>
+          ) : participants.length === 0 ? (
+            <Center py={8}>
+              <VStack spacing={4}>
+                <FaUsers size="48px" color="#718096" />
+                <Text color="gray.400">No participants yet</Text>
+              </VStack>
+            </Center>
+          ) : (
+            <TableContainer>
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th color="gray.300">Participant</Th>
+                    <Th color="gray.300">Email</Th>
+                    <Th color="gray.300">Status</Th>
+                    <Th color="gray.300">Joined At</Th>
+                    <Th color="gray.300">Actions</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {participants.map((participant) => (
+                    <Tr key={participant.id}>
+                      <Td>
+                        <HStack>
+                          <Avatar size="sm" name={participant.participant.name} />
+                          <Text color="white">{participant.participant.name}</Text>
+                        </HStack>
+                      </Td>
+                      <Td color="gray.300">{participant.participant.user.email}</Td>
+                      <Td>
+                        <Tag colorScheme={getStatusColor(participant.status)} size="sm">
+                          <TagLeftIcon as={getStatusIcon(participant.status)} />
+                          <TagLabel>{participant.status}</TagLabel>
+                        </Tag>
+                      </Td>
+                      <Td color="gray.300">
+                        {new Date(participant.joinedAt).toLocaleDateString()}
+                      </Td>
+                      <Td>
+                        {participant.status === 'PENDING' && (
+                          <Button
+                            size="sm"
+                            colorScheme="green"
+                            leftIcon={<FaCheck />}
+                            onClick={() => handleApproveParticipant(participant.id)}
+                          >
+                            Approve
+                          </Button>
+                        )}
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" onClick={onClose} color="gray.400">
+            Close
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
+
 type CreateEventModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  event?: EventType | null;
-  onSave: (eventData: any) => Promise<void>;
+  event?: Event | null;
+  onSave: (eventData: any, eventId?: number) => Promise<void>;
 };
 
-
-
 const AdminEventsDashboard = () => {
-
   const { user } = useUserStore();
   const { company } = useCompanyStore();
-  const [events, setEvents] = useState(mockEvents);
-  const [filteredEvents, setFilteredEvents] = useState(mockEvents);
-  const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [isLoading, setIsLoading] = useState(false);
-
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
   const { isOpen: isDeleteModalOpen, onOpen: onDeleteModalOpen, onClose: onDeleteModalClose } = useDisclosure();
+  const { isOpen: isParticipantsModalOpen, onOpen: onParticipantsModalOpen, onClose: onParticipantsModalClose } = useDisclosure();
 
   const toast = useToast();
-
-
   const bg = useColorModeValue("gray.900", "black");
   const cardBg = useColorModeValue("gray.800", "gray.900");
   const borderColor = useColorModeValue("gray.600", "gray.700");
   const inputBg = useColorModeValue("gray.700", "gray.800");
 
-  // Filter events based on search and filters
   useEffect(() => {
+    fetchEvents();
+  }, [company]);
+
+  useEffect(() => {
+    filterEvents();
+  }, [events, searchQuery, filterType, filterStatus]);
+
+  const fetchEvents = async () => {
+    setIsLoading(true);
+    try {
+      if (company?.events) {
+        const startIndex = (page - 1) * 12;
+        const paginated = company.events.slice(startIndex, startIndex + 12);
+
+        setEvents(paginated);
+        setTotalPages(Math.ceil(company.events.length / 12));
+      }
+    } catch (error) {
+      console.error("Failed to fetch events:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load events",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+  const filterEvents = () => {
     let filtered = events;
 
     if (searchQuery) {
       filtered = filtered.filter(event =>
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.organizer.name.toLowerCase().includes(searchQuery.toLowerCase())
+        event.organizer?.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     if (filterType !== 'ALL') {
-      filtered = filtered.filter(event => event.type === filterType);
+      filtered = filtered.filter(event => event.TypeOfEvent === filterType);
     }
-
     if (filterStatus !== 'ALL') {
       filtered = filtered.filter(event => event.status === filterStatus);
     }
 
+
     setFilteredEvents(filtered);
-  }, [events, searchQuery, filterType, filterStatus]);
-
-  useEffect(() => {
-    if (company?.events) {
-      setEvents(company.events);
-      setFilteredEvents(company.events);
-    }
-  }, [company]);
-
+  };
 
   const handleCreateEvent = async (eventData: any) => {
-    console.log("🔥 handleCreateEvent called with:", eventData);
     try {
       const formData = new FormData();
 
       // Extract attachments first
       const { attachments, ...rest } = eventData;
 
-
-      // Append all non-file fields directly
+      // Append all non-file fields
       Object.entries({
         ...rest,
         companyId: company?.id,
-        organizerId: user.user.profileId,
-        status: "DRAFT",
+        organizerId: user?.user?.profileId,
       }).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          // For objects/arrays, stringify them
           if (typeof value === 'object' && !(value instanceof File)) {
             formData.append(key, JSON.stringify(value));
           } else {
@@ -1129,36 +1453,23 @@ const AdminEventsDashboard = () => {
         }
       });
 
-      // Append files with proper field names
+      // Append files
       if (attachments && attachments.length > 0) {
-        attachments.forEach((attachment: any, index: number) => {
-
+        attachments.forEach((attachment: any) => {
           if (attachment && attachment.file instanceof File) {
-            console.log(`Appending file ${index}:`, attachment.file.name, attachment.file.size);
-            // Use consistent field name that backend expects
             formData.append("files", attachment.file);
-            // Also append type information if needed
             formData.append("fileTypes", attachment.type);
           }
         });
       }
 
-      // Debug: Log FormData contents
-      console.log("FormData entries:");
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
-
-      // Send request
       const res = await apiFormData().post("/events", formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         }
       });
 
-      // Update UI
       setEvents([res.data, ...events]);
-
       toast({
         title: "Event created successfully! 🎉",
         status: "success",
@@ -1169,7 +1480,7 @@ const AdminEventsDashboard = () => {
       console.error("Error creating event:", err.response?.data || err.message);
       toast({
         title: "Failed to create event",
-        description: err.message || "Please try again.",
+        description: err.response?.data?.error || "Please try again.",
         status: "error",
         duration: 4000,
         isClosable: true,
@@ -1177,37 +1488,85 @@ const AdminEventsDashboard = () => {
     }
   };
 
-  const handleEditEvent = async (eventData: EventType) => {
-    if (selectedEvent) {
-      setEvents(events.map(event =>
-        event.id === selectedEvent.id
-          ? {
-            ...event,
-            ...eventData,
-            venue: eventData.venue ?? "",
-            joinLink: eventData.joinLink ?? "",
-            totalSeats: eventData.totalSeats ?? 0
+  const handleEditEvent = async (eventData: any, eventId?: number) => {
+    if (!eventId) return;
+
+    try {
+      const formData = new FormData();
+
+      // Extract attachments first
+      const { attachments, ...rest } = eventData;
+      Object.entries({
+        ...rest,
+        companyId: company?.id,
+        organizerId: user?.user?.profileId,
+      }).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (typeof value === 'object' && !(value instanceof File)) {
+            formData.append(key, JSON.stringify(value));
+          } else {
+            formData.append(key, value as string);
           }
-          : event
-      ));
-      setSelectedEvent(null);
+        }
+      });
+
+      // Append files
+      if (attachments && attachments.length > 0) {
+        attachments.forEach((attachment: any) => {
+          if (attachment && attachment.file instanceof File) {
+            formData.append("files", attachment.file);
+            formData.append("fileTypes", attachment.type);
+          }
+        });
+      }
+      // Append all non-file fields
+      const response = await apiFormData().patch(`/events/${eventId}`, formData);
+      setEvents(events.map(event => event.id === eventId ? response.data : event));
+
+      toast({
+        title: "Event updated successfully!",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err: any) {
+      console.error("Error updating event:", err.response?.data || err.message);
+      toast({
+        title: "Failed to update event",
+        description: err.response?.data?.error || "Please try again.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
     }
   };
 
   const handleDeleteEvent = async () => {
-    if (selectedEvent) {
+    if (!selectedEvent) return;
+
+    try {
+      await api().delete(`/events/${selectedEvent.id}`);
       setEvents(events.filter(event => event.id !== selectedEvent.id));
-      setSelectedEvent(null);
+
       toast({
         title: "Event deleted successfully",
         status: "success",
         duration: 3000,
         isClosable: true,
       });
+    } catch (err: any) {
+      console.error("Error deleting event:", err.response?.data || err.message);
+      toast({
+        title: "Failed to delete event",
+        description: err.response?.data?.error || "Please try again.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
     }
   };
 
-  const handleViewEvent = (event: EventType) => {
+  const handleViewEvent = (event: Event) => {
     toast({
       title: "Event Details",
       description: `Viewing details for: ${event.title}`,
@@ -1217,51 +1576,37 @@ const AdminEventsDashboard = () => {
     });
   };
 
-  const openEditModal = (event: EventType) => {
+  const openEditModal = (event: Event) => {
     setSelectedEvent(event);
     onEditModalOpen();
   };
 
-  const openDeleteModal = (event: EventType) => {
+  const openDeleteModal = (event: Event) => {
     setSelectedEvent(event);
     onDeleteModalOpen();
   };
 
+  const openParticipantsModal = (event: Event) => {
+    setSelectedEvent(event);
+    onParticipantsModalOpen();
+  };
+
   const refreshEvents = async () => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Events refreshed successfully! 🔄",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-      });
-      setIsLoading(false);
-    }, 1000);
+    await fetchEvents();
+    toast({
+      title: "Events refreshed successfully! 🔄",
+      status: "success",
+      duration: 2000,
+      isClosable: true,
+    });
   };
 
   // Statistics
   const totalEvents = events.length;
-  // Total participants across ALL events
-  // Total participants across ALL events
-  const totalParticipants =
-    events?.reduce((sum, event) => sum + (Array.isArray(event.participants) ? event.participants.length : 0), 0) || 0;
-
-  // Count of ACTIVE events
-  const activeEvents =
-    events?.filter(event => event.status === "ACTIVE").length || 0;
-
-  // Pending approvals across ALL events
-  const pendingApprovals =
-    events?.reduce((sum, event) => {
-      const pendingCount = Array.isArray(event.participants)
-        ? event.participants.filter(p => p.status === "PENDING").length
-        : 0;
-      return sum + pendingCount;
-    }, 0) || 0;
-
-
+  const totalParticipants = events.reduce((sum, event) => sum + event.confirmedParticipants, 0);
+  const activeEvents = events.filter(event => event.status === "ACTIVE").length;
+  const pendingApprovals = events.filter(event => event.requiresApproval).length;
 
   return (
     <Box bg={bg} minH="100vh" color="white">
@@ -1354,7 +1699,7 @@ const AdminEventsDashboard = () => {
                     <Flex justify="space-between" align="center">
                       <Box>
                         <StatLabel color="gray.400">Total Participants</StatLabel>
-                        <StatNumber color="white" fontSize="2xl">{Number(totalParticipants)}</StatNumber>
+                        <StatNumber color="white" fontSize="2xl">{Number(totalParticipants) || 0}</StatNumber>
                         <StatHelpText color="green.400">
                           <StatArrow type="increase" />
                           18.25%
@@ -1466,6 +1811,7 @@ const AdminEventsDashboard = () => {
                     <option value="SEMINAR">Seminar</option>
                     <option value="WEBINAR">Webinar</option>
                     <option value="COMPETITION">Competition</option>
+                    <option value="OTHER">Other</option>
                   </Select>
                 </FormControl>
 
@@ -1528,15 +1874,18 @@ const AdminEventsDashboard = () => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.8 }}
           >
-            {filteredEvents.length === 0 ? (
-              <Card bg={cardBg} border="1px" borderColor={borderColor} borderRadius="xl" p={12} >
+            {isLoading ? (
+              <Center py={12}>
+                <Spinner size="xl" color="yellow.400" />
+              </Center>
+            ) : filteredEvents.length === 0 ? (
+              <Card bg={cardBg} border="1px" borderColor={borderColor} borderRadius="xl" p={12}>
                 <VStack spacing={6}>
                   <Box
                     p={6}
                     borderRadius="full"
                     bg="gray.700"
                     color="gray.400"
-
                   >
                     <FaCalendarAlt size="48px" />
                   </Box>
@@ -1591,7 +1940,6 @@ const AdminEventsDashboard = () => {
                     lg: "repeat(3, 1fr)"
                   }}
                   gap={6}
-
                 >
                   <AnimatePresence>
                     {filteredEvents.map((event, index) => (
@@ -1607,23 +1955,43 @@ const AdminEventsDashboard = () => {
                           onEdit={openEditModal}
                           onDelete={openDeleteModal}
                           onView={handleViewEvent}
-                          onDuplicate={(event) => {
-                            toast({
-                              title: "Event duplicated",
-                              description: `Created a copy of "${event.title}"`,
-                              status: "success",
-                              duration: 3000,
-                              isClosable: true,
-                            });
-                          }}
+                          onManageParticipants={openParticipantsModal}
                         />
                       </MotionBox>
                     ))}
                   </AnimatePresence>
                 </Grid>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <HStack justify="center" mt={8} spacing={4}>
+                    <Button
+                      leftIcon={<FaArrowLeft />}
+                      onClick={() => setPage(Math.max(1, page - 1))}
+                      isDisabled={page === 1}
+                      variant="outline"
+                      colorScheme="gray"
+                    >
+                      Previous
+                    </Button>
+                    <Text color="gray.400">
+                      Page {page} of {totalPages}
+                    </Text>
+                    <Button
+                      rightIcon={<FaArrowRight />}
+                      onClick={() => setPage(Math.min(totalPages, page + 1))}
+                      isDisabled={page === totalPages}
+                      variant="outline"
+                      colorScheme="gray"
+                    >
+                      Next
+                    </Button>
+                  </HStack>
+                )}
               </>
             )}
           </MotionBox>
+
           <TeamMembersSection
             company={company}
             user={user}
@@ -1664,7 +2032,7 @@ const AdminEventsDashboard = () => {
             </HStack>
           </ModalHeader>
           <ModalCloseButton color="gray.400" />
-          <ModalBody >
+          <ModalBody>
             <Alert status="warning" bg="red.900" border="1px" borderColor="red.600" borderRadius="lg">
               <AlertIcon color="red.400" />
               <Box>
@@ -1675,13 +2043,13 @@ const AdminEventsDashboard = () => {
                 </AlertDescription>
               </Box>
             </Alert>
-            {(selectedEvent && typeof selectedEvent.participants === "number" && selectedEvent.participants > 0) && (
+            {selectedEvent && selectedEvent.confirmedParticipants > 0 && (
               <Alert status="error" bg="red.900" border="1px" borderColor="red.600" borderRadius="lg" mt={4}>
                 <AlertIcon color="red.400" />
                 <Box>
                   <AlertTitle color="red.200">Event has participants!</AlertTitle>
                   <AlertDescription color="red.300">
-                    This event has {selectedEvent.participants} registered participants.
+                    This event has {selectedEvent.confirmedParticipants} registered participants.
                     Consider canceling the event instead of deleting it.
                   </AlertDescription>
                 </Box>
@@ -1707,6 +2075,13 @@ const AdminEventsDashboard = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Participants Modal */}
+      <ParticipantsModal
+        isOpen={isParticipantsModalOpen}
+        onClose={onParticipantsModalClose}
+        event={selectedEvent}
+      />
     </Box>
   );
 };

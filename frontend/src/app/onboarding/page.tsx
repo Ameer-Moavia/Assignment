@@ -47,7 +47,8 @@ import {
     FaEnvelope,
     FaForward,
     FaStar,
-    FaArrowRight
+    FaArrowRight,
+    
 } from "react-icons/fa";
 import Header from "@/components/layout/Header";
 import { useCompanyStore } from "@/utils/stores/useCompanyStore";
@@ -646,7 +647,7 @@ export default function OnboardingPage() {
                                     <VStack align="start" spacing={1}>
                                         <Text fontWeight="bold">Setup Complete!</Text>
                                         <Text fontSize="sm">
-                                            Company: {company?.data.name} • Team Members: {invitedEmails.length} invited
+                                            Company: {company?.data?.name} • Team Members: {invitedEmails.length} invited
                                         </Text>
                                     </VStack>
                                 </Alert>
@@ -754,7 +755,7 @@ export default function OnboardingPage() {
                             colorScheme="yellow"
                             size="lg"
                             w="full"
-                            onClick={()=>{handleFinalLaunch(company?.id, user?.token)}}
+                            onClick={()=>{handleFinalLaunch(company?.data?.id, user?.token)}}
                             rightIcon={<Icon as={FaStar} />}
                             _hover={{
                                 transform: "translateY(-2px)",

@@ -1,9 +1,9 @@
 "use client";
-import { 
-  Flex, 
-  Box, 
-  Button, 
-  Link as ChakraLink, 
+import {
+  Flex,
+  Box,
+  Button,
+  Link as ChakraLink,
   IconButton,
   useDisclosure,
   VStack,
@@ -21,9 +21,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { FaBars, FaTimes, FaCalendarAlt, FaSignInAlt, FaUserPlus, FaUser, FaSignOutAlt, FaCog, FaChevronDown } from "react-icons/fa";
+import { FaBars, FaTimes, FaCalendarAlt, FaSignInAlt, FaUserPlus, FaUser, FaSignOutAlt, FaCog, FaChevronDown, FaTachometerAlt } from "react-icons/fa";
 import { useUserStore } from "@/utils/stores/useUserStore";
 import { useCompanyStore } from "@/utils/stores/useCompanyStore";
+import { useRouter } from "next/navigation";
 
 const MotionBox = motion.create(Box);
 const MotionFlex = motion.create(Flex);
@@ -81,10 +82,12 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
   const isAuthPage = pathname?.startsWith("/auth");
-  const { user} = useUserStore();
+  const { user } = useUserStore();
   const bg = useColorModeValue("gray.900", "black");
   const borderColor = useColorModeValue("yellow.400", "yellow.300");
   const logoGradient = "linear(to-r, yellow.400, yellow.600)";
+  const router = useRouter();
+  const role = user?.user?.role;
 
   // Handle scroll effect
   useEffect(() => {
@@ -143,14 +146,14 @@ export default function Header() {
           {/* Desktop Navigation */}
           {!isAuthPage && (
             <HStack spacing={3} display={{ base: "none", md: "flex" }}>
-              <NavLink 
-                href="/events" 
+              <NavLink
+                href="/events"
                 icon={<FaCalendarAlt />}
                 variant="ghost"
               >
                 Events
               </NavLink>
-              
+
               {user ? (
                 // User is logged in - show user menu
                 <Menu>
@@ -159,7 +162,7 @@ export default function Header() {
                     size="sm"
                     variant="ghost"
                     rightIcon={<FaChevronDown />}
-                    leftIcon={<Avatar size="xs" name={user.email} />}
+                    leftIcon={<Avatar size="xs" name={user?.user.email} />}
                     color="yellow.400"
                     _hover={{
                       bg: "yellow.400",
@@ -170,11 +173,11 @@ export default function Header() {
                     }}
                     fontWeight="medium"
                   >
-                    {user.email?.split('@')[0]}
+                    {user?.user?.name || user?.user.email?.split('@')[0]}
                   </MenuButton>
                   <MenuList bg="gray.800" borderColor="yellow.400">
-                    <MenuItem 
-                      icon={<FaUser />} 
+                    <MenuItem
+                      icon={<FaUser />}
                       bg="gray.800"
                       _hover={{ bg: "gray.700" }}
                       color="white"
@@ -183,18 +186,24 @@ export default function Header() {
                     >
                       Profile
                     </MenuItem>
-                    <MenuItem 
-                      icon={<FaCog />} 
+                    <MenuItem
+                      icon={<FaTachometerAlt />}
                       bg="gray.800"
                       _hover={{ bg: "gray.700" }}
                       color="white"
-                      as={Link}
-                      href="/settings"
+                      onClick={() => {
+                        if (role === "PARTICIPANT") {
+                          router.push("/participant/dashboard");
+                        } else {
+                          router.push("/admin/dashboard");
+                        }
+                      }}
                     >
-                      Settings
+                      Dashboard
                     </MenuItem>
-                    <MenuItem 
-                      icon={<FaSignOutAlt />} 
+
+                    <MenuItem
+                      icon={<FaSignOutAlt />}
                       bg="gray.800"
                       _hover={{ bg: "red.600" }}
                       color="red.400"
@@ -207,15 +216,15 @@ export default function Header() {
               ) : (
                 // User not logged in - show auth buttons
                 <>
-                  <NavLink 
-                    href="/auth/login" 
+                  <NavLink
+                    href="/auth/login"
                     icon={<FaSignInAlt />}
                     variant="solid"
                   >
                     Login
                   </NavLink>
-                  <NavLink 
-                    href="/auth/signup" 
+                  <NavLink
+                    href="/auth/signup"
                     icon={<FaUserPlus />}
                     variant="outline"
                   >
@@ -274,8 +283,8 @@ export default function Header() {
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: 0.1, duration: 0.3 }}
                   >
-                    <NavLink 
-                      href="/events" 
+                    <NavLink
+                      href="/events"
                       icon={<FaCalendarAlt />}
                       variant="ghost"
                       onClick={onClose}
@@ -283,7 +292,7 @@ export default function Header() {
                       Events
                     </NavLink>
                   </MotionBox>
-                  
+
                   {user ? (
                     // Mobile user menu items
                     <>
@@ -300,21 +309,21 @@ export default function Header() {
                           borderColor="yellow.400"
                         >
                           <Text fontSize="sm" color="yellow.400" fontWeight="medium">
-                            Welcome, {user.email?.split('@')[0]}!
+                            Welcome, {user?.user?.name || user?.user?.email?.split('@')[0]}!
                           </Text>
                           <Text fontSize="xs" color="gray.400">
-                            {user.role || 'User'}
+                            {role|| 'User'}
                           </Text>
                         </Box>
                       </MotionBox>
-                      
+
                       <MotionBox
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.3, duration: 0.3 }}
                       >
-                        <NavLink 
-                          href="/profile" 
+                        <NavLink
+                          href="/profile"
                           icon={<FaUser />}
                           variant="ghost"
                           onClick={onClose}
@@ -322,22 +331,20 @@ export default function Header() {
                           Profile
                         </NavLink>
                       </MotionBox>
-                      
                       <MotionBox
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.4, duration: 0.3 }}
                       >
-                        <NavLink 
-                          href="/settings" 
-                          icon={<FaCog />}
+                        <NavLink
+                          href={role === "PARTICIPANT" ? "/participant/dashboard" : "/admin/dashboard"}
+                          icon={<FaTachometerAlt />} // dashboard icon
                           variant="ghost"
                           onClick={onClose}
                         >
-                          Settings
+                          Dashboard
                         </NavLink>
                       </MotionBox>
-                      
                       <MotionBox
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
@@ -374,8 +381,8 @@ export default function Header() {
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.2, duration: 0.3 }}
                       >
-                        <NavLink 
-                          href="/auth/login" 
+                        <NavLink
+                          href="/auth/login"
                           icon={<FaSignInAlt />}
                           variant="solid"
                           onClick={onClose}
@@ -383,14 +390,14 @@ export default function Header() {
                           Login
                         </NavLink>
                       </MotionBox>
-                      
+
                       <MotionBox
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.3, duration: 0.3 }}
                       >
-                        <NavLink 
-                          href="/auth/signup" 
+                        <NavLink
+                          href="/auth/signup"
                           icon={<FaUserPlus />}
                           variant="outline"
                           onClick={onClose}

@@ -17,6 +17,7 @@
     "axios": "^1.11.0",
     "formik": "^2.4.6",
     "framer-motion": "^12.23.12",
+    "lucide-react": "^0.542.0",
     "luxon": "^3.7.1",
     "multer": "^2.0.2",
     "next": "15.4.6",

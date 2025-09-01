@@ -92,6 +92,7 @@ type Company = {
     ownerId: number;
     owner: Organizer;
     organizers: Organizer[];
+    users: any;
     [key: string]: any; // for events and other relations
 };
 type Event = {
@@ -299,10 +300,10 @@ const MemberCard = ({ member, currentUserId, onRemove, ownerId }: MemberCardProp
     const borderColor = useColorModeValue("gray.600", "gray.700");
     const toast = useToast();
 
-    const isCurrentUser = member.userId === currentUserId;
-    const isCompanyOwner = Number(member.userId) === ownerId;
+    const isCurrentUser = member.id === currentUserId;
+    const isCompanyOwner = Number(member.id) === ownerId;
     const isOwner = Number(currentUserId) === ownerId;
-     console.log("isOwner:", isOwner, "isCompanyOwner:", isCompanyOwner, "isCurrentUser:", isCurrentUser,member.userId,currentUserId,ownerId);
+     console.log("isOwner:", isOwner, "isCompanyOwner:", isCompanyOwner, "isCurrentUser:", isCurrentUser,member.id,currentUserId,ownerId);
 
 
     const getRoleColor = (role: string) => {
@@ -360,8 +361,9 @@ const MemberCard = ({ member, currentUserId, onRemove, ownerId }: MemberCardProp
                                         <Badge colorScheme="green" size="sm">You</Badge>
                                     )}
                                 </HStack>
+                           
 
-                                <Text fontSize="sm" color="gray.400">{member.user?.email || "No email provided"}</Text>
+                                <Text fontSize="sm" color="gray.400"> {member.user?.email || member.email || "No email provided"}</Text>
                             </VStack>
                         </HStack>
 
@@ -423,8 +425,6 @@ const MemberCard = ({ member, currentUserId, onRemove, ownerId }: MemberCardProp
 const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
     company,
     user,
-    onInviteMember,
-    onRemoveMember,
     onUpdateMemberRole
 }) => {
     const { isOpen, onOpen, onClose } = useDisclosure();
@@ -433,18 +433,28 @@ const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
 
     // Check if current user is the company owner
     const isOwner = user?.user?.profileId === company?.ownerId;
+    const ownerEmail =
+  (company?.organizers as any)?.find((org: any) => org.id === company?.owner?.id)?.user?.email || null;
 
     // Combine owner and organizers for display
-   const allMembers = [
-  { ...company?.owner, role: 'OWNER', status: 'ACTIVE' },
+ const allMembers = [
+  ...(company?.owner ? [{
+    id: company.owner.id,
+    userId: company.owner.userId, 
+    name: company.owner.name,
+    email: ownerEmail,
+    role: 'OWNER',
+    status: 'ACTIVE',
+  }] : []),
   ...(company?.organizers || [])
     .filter(org => org?.id !== company?.owner?.id)
     .map(org => ({
       ...org,
       role: org?.role || 'ORGANIZER',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
     }))
 ];
+
 
 
     const handleInviteMember = async (memberData: any) => {
@@ -481,7 +491,8 @@ const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
 
     const handleRemoveMember = async (member: any) => {
         try {
-            const res = await api().delete(`/users/${member.id}`); // 👈 deleting user by ID
+            console.log(member)
+            const res = await api().delete(`/users/${member.userId}`); // 👈 deleting user by ID
             console.log(res);
 
             if (res.status === 200) {
@@ -639,6 +650,7 @@ const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
                             >
                                 <AnimatePresence>
                                     {allMembers.map((member, index) => (
+                                        console.log("Rendering member:", member),
                                         <MotionBox
                                             key={member.id}
                                             initial={{ opacity: 0, y: 20 }}
@@ -653,7 +665,7 @@ const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
                                                     status: member.status as "ACTIVE" | "PENDING" | "INACTIVE" | undefined,
                                                 }}
                                                 isOwner={isOwner}
-                                                currentUserId={user?.user?.id}
+                                                currentUserId={user?.user?.profileId}
                                                  ownerId={company?.ownerId}
                                                 onRemove={handleRemoveMember}
                                                 onUpdateRole={handleUpdateMemberRole}

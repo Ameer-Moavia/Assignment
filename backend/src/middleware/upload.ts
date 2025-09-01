@@ -10,7 +10,7 @@ const storage = new CloudinaryStorage({
     return {
       folder,
       resource_type: "auto", // auto handles images/videos
-      public_id: `${Date.now()}-${file.originalname.split(".")[0]}`
+      public_id: `${Date.now()}-${file.originalname.split(".")[0].trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_\-\/]/g, "")}`,
     };
   },
 });

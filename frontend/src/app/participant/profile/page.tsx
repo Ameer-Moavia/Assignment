@@ -35,7 +35,7 @@ export default function ProfilePage() {
         { name },
         { headers: { Authorization: `Bearer ${user?.token}` } }
       );
-      setUser({ ...user, user: { ...user.user, name: res.data.name } });
+      setUser({ user: res.data.user, token: user?.token });
       toast({ title: "Name updated", status: "success" });
     } catch (e: any) {
       toast({ title: e.response?.data?.error || "Update failed", status: "error" });

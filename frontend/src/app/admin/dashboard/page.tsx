@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Button,
@@ -1419,6 +1420,7 @@ const AdminEventsDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const router=useRouter();
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
@@ -1489,6 +1491,7 @@ const AdminEventsDashboard = () => {
   const handleCreateEvent = async (eventData: any) => {
     try {
       const formData = new FormData();
+
 
       // Extract attachments first
       const { attachments, ...rest } = eventData;
@@ -1603,8 +1606,7 @@ const AdminEventsDashboard = () => {
 
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
-    console.log("ID:", selectedEvent?.id)
-
+    
     try {
       await api().delete(`/events/${selectedEvent.id}`);
       setEvents(events.filter(event => event.id !== selectedEvent.id));
@@ -1629,6 +1631,8 @@ const AdminEventsDashboard = () => {
   };
 
   const handleViewEvent = (event: Event) => {
+
+   
     toast({
       title: "Event Details",
       description: `Viewing details for: ${event.title}`,
@@ -2035,7 +2039,7 @@ const AdminEventsDashboard = () => {
                           event={event}
                           onEdit={openEditModal}
                           onDelete={openDeleteModal}
-                          onView={handleViewEvent}
+                          onView={()=>{router.push(`/events/${event.id}`)}}
                           onManageParticipants={openParticipantsModal}
                         />
                       </MotionBox>

@@ -126,6 +126,7 @@ import { useUserStore } from "@/utils/stores/useUserStore";
 import { useCompanyStore } from '@/utils/stores/useCompanyStore';
 import Header from '@/components/layout/Header';
 import TeamMembersSection from '@/components/dashboard/TeamMembersSection';
+import { refreshCompany } from '@/utils/stores/RefreshStore/refreshCompany';
 
 const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
@@ -174,6 +175,7 @@ type Event = {
   _count?: {
     participants: number;
   };
+  participants: any;
 };
 
 type Participant = {
@@ -676,7 +678,7 @@ const CreateEventModal = ({ isOpen, onClose, event = null, onSave }: CreateEvent
                             const isExisting = Boolean(att.id && att.url && !att.file);
 
                             return (
-                               <Card key={idx} bg="gray.700" border="1px" borderColor={borderColor} p={4}>
+                              <Card key={idx} bg="gray.700" border="1px" borderColor={borderColor} p={4}>
                                 <VStack spacing={3} align="stretch">
                                   <HStack spacing={3} align="start">
                                     {/* Type selector */}
@@ -1010,6 +1012,7 @@ const EventCard = ({
       position="relative"
       whileHover={{ y: -4 }}
       transition={{ duration: 0.2 }}
+      h="100%"
       _hover={{
         borderColor: "yellow.400",
         shadow: "2xl"
@@ -1017,24 +1020,41 @@ const EventCard = ({
     >
       <Box position="relative">
         {event.attachments?.[0] && (
-          <Image
-            src={event.attachments[0].url}
-            alt={event.title}
-            h="200px"
-            w="full"
-            objectFit="cover"
-            fallback={
-              <Box
-                h="200px"
-                bg="gray.700"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <FaImage size="40px" color="#718096" />
+          <>
+            {event.attachments[0].type === "VIDEO" ? (
+              <Box h="200px" w="full" bg="black">
+                <video
+                  src={event.attachments[0].url}
+                  controls
+                  style={{
+                    height: "200px",
+                    width: "100%",
+                    objectFit: "cover",
+                    borderRadius: "8px",
+                  }}
+                />
               </Box>
-            }
-          />
+            ) : (
+              <Image
+                src={event.attachments[0].url}
+                alt={event.title}
+                h="200px"
+                w="full"
+                objectFit="cover"
+                fallback={
+                  <Box
+                    h="200px"
+                    bg="gray.700"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <FaImage size="40px" color="#718096" />
+                  </Box>
+                }
+              />
+            )}
+          </>
         )}
 
         <Box position="absolute" top={3} left={3} zIndex={2}>
@@ -1064,8 +1084,10 @@ const EventCard = ({
         )}
       </Box>
 
-      <CardBody p={6}>
+
+      <CardBody display="flex" flexDirection="column" h="100%">
         <VStack align="stretch" spacing={4}>
+          {/* Title + Description */}
           <Box>
             <Heading size="md" color="white" mb={2} noOfLines={2}>
               {event.title}
@@ -1075,6 +1097,7 @@ const EventCard = ({
             </Text>
           </Box>
 
+          {/* Date, Time, Venue, JoinLink */}
           <VStack align="stretch" spacing={2}>
             <HStack color="gray.300" fontSize="sm">
               <FaCalendarAlt />
@@ -1102,6 +1125,7 @@ const EventCard = ({
             )}
           </VStack>
 
+          {/* Participants Box */}
           <Box
             p={3}
             bg="gray.700"
@@ -1109,30 +1133,59 @@ const EventCard = ({
             border="1px"
             borderColor="gray.600"
           >
-            <HStack justify="space-between" mb={2}>
-              <Text fontSize="sm" color="gray.300">Participants</Text>
-              <Text fontSize="sm" color="yellow.400" fontWeight="bold">
-                {event.confirmedParticipants}/{event.totalSeats || '∞'}
-              </Text>
-            </HStack>
-            {event.totalSeats && (
-              <Progress
-                value={(event.confirmedParticipants / event.totalSeats) * 100}
-                size="sm"
-                colorScheme="yellow"
-                borderRadius="full"
-                bg="gray.600"
-              />
-            )}
+            {(() => {
+              const confirmed = event.participants?.filter(
+                (p: any) => p.status === "CONFIRMED"
+              ).length || 0;
+              const totalSeats = event.totalSeats || null;
+
+              return (
+                <>
+                  <HStack justify="space-between" mb={2}>
+                    <Text fontSize="sm" color="gray.300">
+                      Participants
+                    </Text>
+                    <Text fontSize="sm" color="yellow.400" fontWeight="bold">
+                      {confirmed}/{totalSeats || "∞"}
+                    </Text>
+                  </HStack>
+                  {totalSeats && (
+                    <Progress
+                      value={(confirmed / totalSeats) * 100}
+                      size="sm"
+                      colorScheme="yellow"
+                      borderRadius="full"
+                      bg="gray.600"
+                    />
+                  )}
+                </>
+              );
+            })()}
+
             <HStack justify="space-between" mt={2} fontSize="xs" color="gray.400">
+              {/* Organizer */}
               <Text>by {event.organizer?.name}</Text>
+
+              {/* Pending Approvals */}
+              {event.requiresApproval && (
+                <Text fontWeight="bold" color="red.400">
+                  {
+                    event.participants?.filter((p:Participant) => p.status === "PENDING").length || 0
+                  } Pending Approval
+                  {event.participants?.filter((p:Participant) => p.status === "PENDING").length !== 1 ? "s" : ""}
+                </Text>
+              )}
             </HStack>
+
           </Box>
 
+          {/* Organizer + Menu */}
           <HStack justify="space-between" align="center">
             <HStack>
               <Avatar size="sm" name={event.organizer?.name} />
-              <Text fontSize="sm" color="gray.300">{event.organizer?.name}</Text>
+              <Text fontSize="sm" color="gray.300">
+                {event.organizer?.name}
+              </Text>
             </HStack>
             <Menu>
               <MenuButton
@@ -1179,6 +1232,7 @@ const EventCard = ({
           </HStack>
         </VStack>
       </CardBody>
+
     </MotionCard>
   );
 };
@@ -1225,6 +1279,7 @@ const ParticipantsModal = ({ isOpen, onClose, event }: { isOpen: boolean; onClos
         duration: 3000,
         isClosable: true,
       });
+      await refreshCompany();
       fetchParticipants(); // Refresh the list
     } catch (error) {
       console.error('Failed to approve participant:', error);
@@ -1469,6 +1524,9 @@ const AdminEventsDashboard = () => {
         }
       });
 
+      await refreshCompany();
+      
+
       setEvents([res.data, ...events]);
       toast({
         title: "Event created successfully! 🎉",
@@ -1523,6 +1581,8 @@ const AdminEventsDashboard = () => {
       const response = await apiFormData().patch(`/events/${eventId}`, formData);
       setEvents(events.map(event => event.id === eventId ? response.data : event));
 
+      await refreshCompany();
+
       toast({
         title: "Event updated successfully!",
         status: "success",
@@ -1543,10 +1603,12 @@ const AdminEventsDashboard = () => {
 
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
+    console.log("ID:", selectedEvent?.id)
 
     try {
       await api().delete(`/events/${selectedEvent.id}`);
       setEvents(events.filter(event => event.id !== selectedEvent.id));
+      await refreshCompany();
 
       toast({
         title: "Event deleted successfully",
@@ -1604,9 +1666,26 @@ const AdminEventsDashboard = () => {
 
   // Statistics
   const totalEvents = events.length;
-  const totalParticipants = events.reduce((sum, event) => sum + event.confirmedParticipants, 0);
+  // ✅ total confirmed participants across all events
+  const totalParticipants = events?.reduce((sum, event) => {
+    const confirmedCount = event.participants?.filter(
+      (p: any) => p.status === "CONFIRMED"
+    ).length || 0;
+    return sum + confirmedCount;
+  }, 0);
+
+  // ✅ total pending approvals (participants with status PENDING in events that requireApproval)
+  const pendingApprovals = events.reduce((sum, event) => {
+
+    const pendingCount = event.participants?.filter(
+      (p: any) => p.status === "PENDING"
+    ).length || 0;
+
+    return sum + pendingCount;
+  }, 0);
+
   const activeEvents = events.filter(event => event.status === "ACTIVE").length;
-  const pendingApprovals = events.filter(event => event.requiresApproval).length;
+
 
   return (
     <Box bg={bg} minH="100vh" color="white">
@@ -1940,6 +2019,7 @@ const AdminEventsDashboard = () => {
                     lg: "repeat(3, 1fr)"
                   }}
                   gap={6}
+                  alignItems="stretch"
                 >
                   <AnimatePresence>
                     {filteredEvents.map((event, index) => (
@@ -1949,6 +2029,7 @@ const AdminEventsDashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -40 }}
                         transition={{ delay: index * 0.1, duration: 0.5 }}
+                        h="100%"
                       >
                         <EventCard
                           event={event}
@@ -1991,12 +2072,16 @@ const AdminEventsDashboard = () => {
               </>
             )}
           </MotionBox>
+          <MotionBox
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
+          >
+            <TeamMembersSection company={company} user={user} />
+          </MotionBox>
 
-          <TeamMembersSection
-            company={company}
-            user={user}
-          />
         </VStack>
+
       </Container>
 
       {/* Create Event Modal */}

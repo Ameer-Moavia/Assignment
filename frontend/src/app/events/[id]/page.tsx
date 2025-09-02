@@ -93,6 +93,7 @@ type Event = {
   type: 'ONSITE' | 'ONLINE';
   status: 'CANCELLED' | 'COMPLETED' | 'DRAFT' | 'ACTIVE';
   TypeOfEvent: 'WEBINAR' | 'SEMINAR' | 'WORKSHOP' | 'COMPETITION' | 'CONFERENCE' | 'OTHER';
+  joinQuestions: string;
   organizer: {
     id: number;
     name: string;
@@ -111,6 +112,8 @@ type Event = {
   contactInfo?: string;
   createdAt: string;
   updatedAt: string;
+  parsedJoinQuestions?: string[];
+
 };
 
 type JoinFormData = {
@@ -167,6 +170,7 @@ const EventDetailsPage: React.FC = () => {
     }
   ];
 
+
   useEffect(() => {
     if (id) {
       fetchEvent();
@@ -174,19 +178,34 @@ const EventDetailsPage: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-   checkJoinStatus();
+    checkJoinStatus();
   }, [user]);
+
 
   const fetchEvent = async () => {
     setLoading(true);
     try {
       const response = await api().get(`/events/${id}`);
       const eventData = response.data;
-      // Remove joinQuestions from the API response as it's not in your schema
-      const { joinQuestions, ...eventWithoutQuestions } = eventData;
-      setEvent(eventWithoutQuestions);
+
+      // Parse joinQuestions if it’s JSON string or array
+      let parsedQuestions: string[] = [];
+      try {
+        parsedQuestions = typeof eventData.joinQuestions === "string"
+          ? JSON.parse(eventData.joinQuestions)
+          : Array.isArray(eventData.joinQuestions)
+            ? eventData.joinQuestions
+            : [];
+      } catch (e) {
+        console.error("Failed to parse joinQuestions:", e);
+      }
+
+      // Attach parsed questions to event
+      setEvent({ ...eventData, parsedJoinQuestions: parsedQuestions ?? [] });
+      // Parse DB join questions
+     
     } catch (error) {
-      console.error('Failed to fetch event:', error);
+      console.error("Failed to fetch event:", error);
       toast({
         title: "Error",
         description: "Failed to load event details",
@@ -199,18 +218,19 @@ const EventDetailsPage: React.FC = () => {
     }
   };
 
+
   const checkJoinStatus = async () => {
     if (!user?.user || user.user.role !== 'PARTICIPANT') return;
-    
+
     try {
-      
-      const hasJoinedEvent = user?.user?.partticipations.filter((p:any)=>p.eventId==id && (p?.status==="CONFIRMED" || p?.status==="PENDING")).length>0;
+
+      const hasJoinedEvent = user?.user?.partticipations.filter((p: any) => p.eventId == id && (p?.status === "CONFIRMED" || p?.status === "PENDING")).length > 0;
       setHasJoined(hasJoinedEvent);
-      if(hasJoinedEvent){
-        const participation = user?.user?.partticipations.find((p:any)=>p.eventId==id);
-        setJoinStatus(participation?.status==="CONFIRMED"?"CONFIRMED":"PENDING");
+      if (hasJoinedEvent) {
+        const participation = user?.user?.partticipations.find((p: any) => p.eventId == id);
+        setJoinStatus(participation?.status === "CONFIRMED" ? "CONFIRMED" : "PENDING");
       }
-    
+
     } catch (error) {
       console.error('Failed to check join status:', error);
     }
@@ -237,16 +257,16 @@ const EventDetailsPage: React.FC = () => {
       };
 
       const response = await api().post(`/events/${event.id}/join`, payload);
-      
+
       // Update based on your API response structure
       if (response.data) {
         setHasJoined(true);
         setJoinStatus(event.requiresApproval ? 'PENDING' : 'CONFIRMED');
         onJoinModalClose();
-        
+
         toast({
           title: "Success!",
-          description: event.requiresApproval 
+          description: event.requiresApproval
             ? "Your request has been submitted and is pending approval"
             : "You have successfully joined the event",
           status: "success",
@@ -270,13 +290,15 @@ const EventDetailsPage: React.FC = () => {
       setJoining(false);
     }
   };
-
-  const handleInputChange = (questionId: number, value: string | string[] | boolean) => {
-    setJoinFormData(prev => ({
-      ...prev,
-      [questionId]: value
-    }));
-  };
+const handleInputChange = (
+  questionId: string | number,
+  value: string | string[] | boolean
+) => {
+  setJoinFormData(prev => ({
+    ...prev,
+    [questionId]: value
+  }));
+};
 
   const renderJoinQuestion = (question: typeof mockJoinQuestions[0]) => {
     switch (question.type) {
@@ -392,11 +414,11 @@ const EventDetailsPage: React.FC = () => {
   };
 
   const canJoinEvent = () => {
-    return user?.user?.role === 'PARTICIPANT' && 
-           event?.status === 'ACTIVE' && 
-           !isEventEnded() && 
-           !isEventFull() && 
-           !hasJoined;
+    return user?.user?.role === 'PARTICIPANT' &&
+      event?.status === 'ACTIVE' &&
+      !isEventEnded() &&
+      !isEventFull() &&
+      !hasJoined;
   };
 
   const getJoinButtonText = () => {
@@ -504,7 +526,7 @@ const EventDetailsPage: React.FC = () => {
       paddingBottom={8}
     >
       <Header />
-      
+
       {/* Back Button */}
       <HStack spacing={4} mb={6}>
         <IconButton
@@ -540,7 +562,7 @@ const EventDetailsPage: React.FC = () => {
             <Text color="gray.400">No media available</Text>
           </Box>
         )}
-       
+
 
         <CardBody p={8}>
           <VStack spacing={6} align="stretch">
@@ -559,10 +581,10 @@ const EventDetailsPage: React.FC = () => {
                   <Badge colorScheme="purple" size="md" px={3} py={1}>
                     {event.TypeOfEvent}
                   </Badge>
-                  <Badge 
-                    colorScheme={event.type === 'ONLINE' ? 'blue' : 'green'} 
-                    size="md" 
-                    px={3} 
+                  <Badge
+                    colorScheme={event.type === 'ONLINE' ? 'blue' : 'green'}
+                    size="md"
+                    px={3}
                     py={1}
                   >
                     {event.type === 'ONLINE' ? 'Online' : 'Onsite'}
@@ -573,11 +595,11 @@ const EventDetailsPage: React.FC = () => {
                     </Badge>
                   )}
                 </HStack>
-                
+
                 <Heading size="2xl" color="white" lineHeight="1.2">
                   {event.title}
                 </Heading>
-                
+
                 <Text fontSize="lg" color="gray.300" lineHeight="1.6">
                   {event.description}
                 </Text>
@@ -591,7 +613,7 @@ const EventDetailsPage: React.FC = () => {
                     <AlertTitle fontSize="sm">Pending Approval</AlertTitle>
                   </Alert>
                 )}
-                
+
                 {hasJoined && joinStatus === 'CONFIRMED' && (
                   <Alert status="success" borderRadius="lg" bg="green.100" color="green.800">
                     <AlertIcon />
@@ -712,8 +734,8 @@ const EventDetailsPage: React.FC = () => {
                       {event.totalSeats && `/${event.totalSeats}`}
                     </Text>
                     <Text color="orange.400" fontSize="sm" fontWeight="medium">
-                      {event.totalSeats ? 
-                        `${event.totalSeats - event.confirmedParticipants} spots left` : 
+                      {event.totalSeats ?
+                        `${event.totalSeats - event.confirmedParticipants} spots left` :
                         'Unlimited'
                       }
                     </Text>
@@ -734,7 +756,7 @@ const EventDetailsPage: React.FC = () => {
                 <VStack align="start" spacing={1}>
                   <Text color="gray.400" fontSize="sm">Hosted by</Text>
                   <Text color="white" fontSize="lg" fontWeight="bold">
-                     {event?.company?.name} (Company)
+                    {event?.company?.name} (Company)
                   </Text>
                   <Text color="gray.400" fontSize="sm">
                     {event.organizer.name} (Event Head)
@@ -761,7 +783,7 @@ const EventDetailsPage: React.FC = () => {
             </HStack>
           </ModalHeader>
           <ModalCloseButton color="gray.400" />
-          
+
           <ModalBody>
             <VStack spacing={6} align="stretch">
               {event.requiresApproval && (
@@ -773,24 +795,44 @@ const EventDetailsPage: React.FC = () => {
                 </Alert>
               )}
 
-              {mockJoinQuestions.length > 0 && (
-                <VStack spacing={4} align="stretch">
-                  <Text color="white" fontSize="lg" fontWeight="bold">
-                    Please answer the following questions:
-                  </Text>
-                  
-                  {mockJoinQuestions.map((question) => (
-                    <FormControl key={question.id} isRequired={question.required}>
-                      <FormLabel color="gray.300" fontSize="sm">
-                        {question.question}
-                        {question.required && <Text as="span" color="red.400"> *</Text>}
-                      </FormLabel>
-                      {renderJoinQuestion(question)}
-                    </FormControl>
-                  ))}
-                </VStack>
-              )}
 
+
+                  {(event?.parsedJoinQuestions!.length > 0 || mockJoinQuestions.length > 0) && (
+                    <VStack spacing={4} align="stretch">
+                      <Text color="white" fontSize="lg" fontWeight="bold">
+                        Please answer the following questions:
+                      </Text>
+
+                      {/* Dynamic DB questions (just text inputs) */}
+                      {event?.parsedJoinQuestions?.map((q: string, idx: number) => (
+                        <FormControl key={`db-q-${idx}`} isRequired={false}>
+                          <FormLabel color="gray.300" fontSize="sm">{q}</FormLabel>
+                          <Input
+                            placeholder="Enter your answer"
+                            value={(joinFormData[`db-${idx}`] as string) || ''}
+                            onChange={(e) => handleInputChange(`db-${idx}`, e.target.value)}
+                            bg="gray.700"
+                            borderColor="gray.600"
+                            _hover={{ borderColor: "yellow.400" }}
+                            _focus={{ borderColor: "yellow.400" }}
+                          />
+                        </FormControl>
+                      ))}
+
+                      {/* Mock questions (structured types) */}
+                      {mockJoinQuestions.map((question) => (
+                        <FormControl key={question.id} isRequired={question.required}>
+                          <FormLabel color="gray.300" fontSize="sm">
+                            {question.question}
+                            {question.required && <Text as="span" color="red.400"> *</Text>}
+                          </FormLabel>
+                          {renderJoinQuestion(question)}
+                        </FormControl>
+                      ))}
+                    </VStack>
+                  )}
+
+              
               <Alert status="warning" borderRadius="lg">
                 <AlertIcon />
                 <AlertDescription>

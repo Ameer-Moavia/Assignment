@@ -2,6 +2,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma/client";
 import { AttachmentType } from "@prisma/client";
+import { sendEmail } from "../utils/email";
+import { generateOtp } from "@utils/otp";
 
 export const createEvent = async (req: Request, res: Response) => {
   try {
@@ -281,12 +283,67 @@ export const approveParticipant = async (req: Request, res: Response) => {
     const eventId = Number(req.params.id);
     const partRowId = Number(req.params.pid);
 
-    const event = await prisma.event.findUnique({ where: { id: eventId }, include: { _count: { select: { participants: { where: { status: "CONFIRMED" } } } } } });
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        company: true,
+        organizer: true,
+        _count: { select: { participants: { where: { status: "CONFIRMED" } } } },
+      },
+    });
     if (!event) return res.status(404).json({ error: "Event not found" });
 
-    if (event.totalSeats != null && event._count.participants >= event.totalSeats) return res.status(400).json({ error: "No seats available" });
+    if (
+      event.totalSeats != null &&
+      event._count.participants >= event.totalSeats
+    ) {
+      return res.status(400).json({ error: "No seats available" });
+    }
 
-    const updated = await prisma.eventParticipant.update({ where: { id: partRowId }, data: { status: "CONFIRMED" } });
+    // ✅ Update participant
+    const updated = await prisma.eventParticipant.update({
+      where: { id: partRowId },
+      data: { status: "CONFIRMED" },
+      include: {
+        participant: {
+          include: { user: { select: { email: true, name: true } } },
+        },
+      },
+    });
+
+    // ✅ Prepare email
+    const recipient = updated.participant.user.email;
+    const subject = `You're approved for "${event.title}" 🎉`;
+
+    let body = `
+      <h2>Hi ${updated.participant.user.name || "Participant"},</h2>
+      <p>You have been approved to join the event <strong>${event.title}</strong> 🎉</p>
+      <p><strong>Type:</strong> ${event.TypeOfEvent}</p>
+      <p><strong>Starts:</strong> ${event.startDate.toLocaleString()}</p>
+      <p><strong>Ends:</strong> ${event.endDate.toLocaleString()}</p>
+      <p><strong>Organizer:</strong> ${event.organizer.name}</p>
+      <p><strong>Company:</strong> ${event.company.name}</p>
+    `;
+
+    if (event.type === "ONLINE") {
+      body += `
+        <p>This is an <b>online event</b>. Join using the link below:</p>
+        <p><a href="${event.joinLink}">${event.joinLink}</a></p>
+      `;
+    } else {
+      body += `
+        <p>This is an <b>onsite event</b>. Details are below:</p>
+        <p><strong>Venue:</strong> ${event.venue ?? "To be announced"}</p>
+        <p><strong>Contact Info:</strong> ${event.contactInfo ?? "N/A"}</p>
+        <p><strong>Pincode:</strong> ${generateOtp() ?? "N/A"}</p>
+      `;
+    }
+
+    body += `<p>We’re excited to see you at the event!</p>`;
+    const text="Congratulations!. Here are your event details";
+
+    await sendEmail( recipient,subject,text,body,);
+
     return res.json(updated);
   } catch (e) {
     console.error(e);
@@ -294,11 +351,34 @@ export const approveParticipant = async (req: Request, res: Response) => {
   }
 };
 
+
 export const listParticipants = async (req: Request, res: Response) => {
   try {
     const eventId = Number(req.params.id);
     const list = await prisma.eventParticipant.findMany({ where: { eventId }, include: { participant: { include: { user: { select: { id: true, email: true } } } } } });
     return res.json(list);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+// src/controllers/event.controller.ts
+
+export const markExpiredEvents = async (req: Request, res: Response) => {
+  try {
+    // Update all events whose endDate < now and are still ACTIVE
+    const result = await prisma.event.updateMany({
+      where: {
+        endDate: { lt: new Date() },
+        status: "ACTIVE", // only expire active ones
+      },
+      data: { status: "COMPLETED" }, // or "EXPIRED"
+    });
+
+    return res.json({
+      message: "Expired events updated",
+      updatedCount: result.count,
+    });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Server error" });

@@ -182,7 +182,7 @@ export default function Header() {
                       _hover={{ bg: "gray.700" }}
                       color="white"
                       as={Link}
-                      href="/profile"
+                      href={role === "PARTICIPANT" ? "/participant/profile" : "/admin/profile"}
                     >
                       Profile
                     </MenuItem>
@@ -323,7 +323,7 @@ export default function Header() {
                         transition={{ delay: 0.3, duration: 0.3 }}
                       >
                         <NavLink
-                          href="/profile"
+                         href={role === "PARTICIPANT" ? "/participant/profile" : "/admin/profile"}
                           icon={<FaUser />}
                           variant="ghost"
                           onClick={onClose}

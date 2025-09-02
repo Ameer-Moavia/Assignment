@@ -24,6 +24,8 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api/axios";
 import { useUserStore } from "@/utils/stores/useUserStore";
+import axios from "axios";
+import { useCompanyStore } from "@/utils/stores/useCompanyStore";
 
 const MotionBox = motion(Box);
 const MotionHeading = motion(Heading);
@@ -45,12 +47,32 @@ export default function SignupOtpPage() {
     const toast = useToast();
     const router = useRouter();
     const { setUser } = useUserStore();
+    const { setCompany } = useCompanyStore();
     const [step, setStep] = useState<"request" | "verify">("request");
     const [formData, setFormData] = useState<{ email: string; role: string }>({
         email: "",
         role: "PARTICIPANT",
     });
+    const setData = async (companyId: number, token: string, helpers: any) => {
+        try {
+            const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}company/${companyId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
 
+            setCompany(res.data.data);
+            localStorage.setItem("comapny", res.data.data);
+
+            router.push("/admin/dashboard");
+        } catch (err: any) {
+            console.error("Error fetching company:", err.response?.data || err.message);
+        } finally {
+            helpers.setSubmitting(false);
+        }
+
+    }
     return (
         <Box
             bg="gray.900"
@@ -116,8 +138,6 @@ export default function SignupOtpPage() {
                             {({ isSubmitting, errors, touched, status, setFieldValue, values }) => (
                                 <Form style={{ width: "100%" }}>
                                     <VStack spacing={6} w="100%">
-                                        <div>{JSON.stringify(values)}</div>
-
                                         {/* Name */}
                                         <MotionBox
                                             w="100%"
@@ -213,7 +233,7 @@ export default function SignupOtpPage() {
                             validationSchema={VerifySchema}
                             onSubmit={async (values, helpers) => {
 
-                                <div>{JSON.stringify(formData)}</div>
+
 
                                 try {
 
@@ -225,7 +245,12 @@ export default function SignupOtpPage() {
                                     // Save user into Zustand
                                     setUser(data);
                                     localStorage.setItem("user", data);
-                                    router.push("/onboarding");
+                                    if (data?.user?.role === 'ADMIN' || data?.user?.role === 'ORGANIZER') {
+                                        data?.user?.companyId ? setData(data?.user?.companyId, data?.token, helpers) : router.push("/onboarding");
+                                        helpers.setSubmitting(false);
+                                    } else if (data?.user.role === "PARTICIPANT") {
+                                        router.push("/participant/dashboard")
+                                    }
                                 } catch (err: any) {
                                     helpers.setStatus(err?.response?.data?.error || "Invalid OTP");
                                 } finally {

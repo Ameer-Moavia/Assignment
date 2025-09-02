@@ -91,7 +91,7 @@ type EventsResponse = {
 };
 
 type FilterState = {
-  status: 'active' | 'past' | 'cancelled' | 'all';
+  status: 'active' | 'completed' | 'cancelled' | 'all';
   search: string;
   page: number;
   pageSize: number;
@@ -148,10 +148,10 @@ const EventCard = ({
     return type === 'ONLINE' ? 'Online' : 'Onsite';
   };
 
- const coverImage = event.attachments?.find(att => att.type === 'IMAGE');
-const coverVideo = !coverImage
-  ? event.attachments?.find(att => att.type === 'VIDEO')
-  : null;
+  const coverImage = event.attachments?.find(att => att.type === 'IMAGE');
+  const coverVideo = !coverImage
+    ? event.attachments?.find(att => att.type === 'VIDEO')
+    : null;
   return (
     <MotionCard
       bg={cardBg}
@@ -170,61 +170,61 @@ const coverVideo = !coverImage
       onClick={() => handleViewEvent(event.id)}
     >
 
-   {coverImage ? (
-  <Image
-    src={coverImage.url}
-    alt={event.title}
-    height="200px"
-    width="100%"
-    objectFit="cover"
-    fallback={
-      <Box
-        height="200px"
-        bg="gray.700"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <FaCalendarAlt size="48px" color="white" opacity="0.3" />
-      </Box>
-    }
-  />
-) : coverVideo ? (
-  <Box height="200px" width="100%" position="relative">
-    <video
-      src={coverVideo.url}
-      controls={false}
-      muted
-      autoPlay
-      loop
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        borderRadius: "8px"
-      }}
-    />
-    {/* Overlay gradient for better text visibility */}
-    <Box
-      position="absolute"
-      top="0"
-      left="0"
-      right="0"
-      bottom="0"
-      bgGradient="linear(to-b, rgba(0,0,0,0.3), rgba(0,0,0,0.6))"
-    />
-  </Box>
-) : (
-  <Box
-    height="200px"
-    bgGradient="linear(to-r, yellow.600, gray.800)"
-    display="flex"
-    alignItems="center"
-    justifyContent="center"
-  >
-    <FaCalendarAlt size="48px" color="white" opacity="0.3" />
-  </Box>
-)}
+      {coverImage ? (
+        <Image
+          src={coverImage.url}
+          alt={event.title}
+          height="200px"
+          width="100%"
+          objectFit="cover"
+          fallback={
+            <Box
+              height="200px"
+              bg="gray.700"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <FaCalendarAlt size="48px" color="white" opacity="0.3" />
+            </Box>
+          }
+        />
+      ) : coverVideo ? (
+        <Box height="200px" width="100%" position="relative">
+          <video
+            src={coverVideo.url}
+            controls={false}
+            muted
+            autoPlay
+            loop
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: "8px"
+            }}
+          />
+          {/* Overlay gradient for better text visibility */}
+          <Box
+            position="absolute"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            bgGradient="linear(to-b, rgba(0,0,0,0.3), rgba(0,0,0,0.6))"
+          />
+        </Box>
+      ) : (
+        <Box
+          height="200px"
+          bgGradient="linear(to-r, yellow.600, gray.800)"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <FaCalendarAlt size="48px" color="white" opacity="0.3" />
+        </Box>
+      )}
 
 
       <CardBody p={6}>
@@ -371,7 +371,7 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
       let statusParam = '';
 
       if (filters.status === 'active') statusParam = 'active';
-      else if (filters.status === 'past') statusParam = 'past';
+      else if (filters.status === 'completed') statusParam = 'completed';
       else if (filters.status === 'cancelled') statusParam = 'cancelled';
       else statusParam = 'all';
 
@@ -400,6 +400,12 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
   useEffect(() => {
     fetchEvents();
   }, [filters]);
+  useEffect(() => {
+    const syncExpired = async () => {
+      await api().patch("/events/mark-expired");
+    };
+    syncExpired();
+  }, [events]);
 
   // Handle search
   const handleSearch = (value: string) => {
@@ -411,7 +417,7 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
   };
 
   // Handle status filter
-  const handleStatusFilter = (status: 'active' | 'past' | 'cancelled' | 'all') => {
+  const handleStatusFilter = (status: 'active' | 'completed' | 'cancelled' | 'all') => {
     setFilters(prev => ({
       ...prev,
       status,
@@ -429,7 +435,7 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
 
   const totalPages = Math.ceil(totalEvents / filters.pageSize);
   const activeEvents = events.filter(e => new Date(e.endDate) > new Date()).length;
-  const pastEvents = events.filter(e => new Date(e.endDate) <= new Date()).length;
+  const completedEvents = events.filter(e => new Date(e.endDate) <= new Date()).length;
 
   return (
     <MotionBox
@@ -493,7 +499,7 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
                 <Text color="white" fontSize="2xl" fontWeight="bold">
                   {events.reduce((sum, event) => sum + event.confirmedParticipants, 0)}
                 </Text>
-                <Text color="gray.400" fontSize="sm">People Attending</Text>
+                <Text color="gray.400" fontSize="sm">Participants</Text>
               </VStack>
             </Card>
           </Grid>
@@ -518,6 +524,14 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
 
               <HStack spacing={2}>
                 <Text color="gray.400" fontSize="sm">Show:</Text>
+                 <Button
+                  size="sm"
+                  variant={filters.status === 'all' ? 'solid' : 'outline'}
+                  colorScheme={filters.status === 'all' ? 'yellow' : 'gray'}
+                  onClick={() => handleStatusFilter('all')}
+                >
+                  All
+                </Button>
                 <Button
                   size="sm"
                   variant={filters.status === 'active' ? 'solid' : 'outline'}
@@ -528,11 +542,11 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
                 </Button>
                 <Button
                   size="sm"
-                  variant={filters.status === 'past' ? 'solid' : 'outline'}
-                  colorScheme={filters.status === 'past' ? 'blue' : 'gray'}
-                  onClick={() => handleStatusFilter('past')}
+                  variant={filters.status === 'completed' ? 'solid' : 'outline'}
+                  colorScheme={filters.status === 'completed' ? 'blue' : 'gray'}
+                  onClick={() => handleStatusFilter('completed')}
                 >
-                  Past
+                  Completed
                 </Button>
                 <Button
                   size="sm"
@@ -541,14 +555,6 @@ const PublicEventsPage: React.FC<PublicEventsPageProps> = ({
                   onClick={() => handleStatusFilter('cancelled')}
                 >
                   Cancelled
-                </Button>
-                <Button
-                  size="sm"
-                  variant={filters.status === 'all' ? 'solid' : 'outline'}
-                  colorScheme={filters.status === 'all' ? 'yellow' : 'gray'}
-                  onClick={() => handleStatusFilter('all')}
-                >
-                  All
                 </Button>
               </HStack>
 

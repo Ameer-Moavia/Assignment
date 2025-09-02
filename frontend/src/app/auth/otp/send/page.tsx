@@ -195,11 +195,13 @@ export default function OtpLoginPage() {
                     email,
                   });
                   setUser(data);
-                  console.log(data);
-                  localStorage.setItem("user", data.user);
+                  
+                  localStorage.setItem("user", data);
                   if (data?.user?.role === 'ADMIN' || data?.user?.role === 'ORGANIZER') {
                     data?.user?.companyId ? setData(data?.user?.companyId, data?.token, helpers) : router.push("/onboarding");
                     helpers.setSubmitting(false);
+                  }else if(data?.user.role==="PARTICIPANT"){
+                    router.push("/participant/dashboard")
                   }
                 } catch (err: any) {
                   helpers.setStatus(

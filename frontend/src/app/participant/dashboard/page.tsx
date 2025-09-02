@@ -206,15 +206,16 @@ const ParticipantDashboard: React.FC<ParticipantDashboardProps> = () => {
 
     type Status = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED";
 
-interface StatusBadgeProps {
-  status: Status;
-  size?: "sm" | "md" | "lg";
-}
+    interface StatusBadgeProps {
+        status: Status;
+        size?: "sm" | "md" | "lg";
+    }
 
 
 
     const EventCard = ({ event }: { event: Event }) => {
         const participation = getEventWithParticipation(event.id);
+         const coverImage = event.attachments?.find(att => att.type === "IMAGE");
 
         return (
             <MotionCard
@@ -233,12 +234,23 @@ interface StatusBadgeProps {
                 cursor="pointer"
                 onClick={() => router.push(`/events/${event.id}`)}
             >
-
-                {event.attachments && event.attachments.length > 0 ? (
-                    <EventMediaCarousel attachments={event.attachments || []} />
+                {coverImage ? (
+                    <Image
+                        src={coverImage.url}
+                        alt={event.title}
+                        height="200px"
+                        width="100%"
+                        objectFit="cover"
+                    />
                 ) : (
-                    <Box w="100%" h="300px" bg="gray.700" display="flex" alignItems="center" justifyContent="center">
-                        <Text color="gray.400">No media available</Text>
+                    <Box
+                        height="200px"
+                        bgGradient="linear(to-r, yellow.600, gray.800, purple.600)"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                    >
+                        <FaCalendarAlt size="48px" color="white" opacity="0.4" />
                     </Box>
                 )}
                 <CardBody p={6}>

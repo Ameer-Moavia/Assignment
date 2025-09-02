@@ -66,6 +66,7 @@ import * as Yup from "yup";
 import { FormikHelpers } from "formik";
 import { FaShield } from 'react-icons/fa6';
 import { api } from "@/utils/Functions/helperApi";
+import { refreshCompany } from '@/utils/stores/RefreshStore/refreshCompany';
 
 const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
@@ -224,11 +225,10 @@ const InviteMemberModal = ({ isOpen, onClose, onInvite, isOwner }: InviteMemberM
                                     <Alert status="info" bg="blue.900" border="1px" borderColor="blue.600" borderRadius="lg">
                                         <AlertIcon color="blue.400" />
                                         <Box>
-                                            <AlertTitle color="blue.200">Team Member Roles</AlertTitle>
+                                            <AlertTitle color="blue.200">Team Member Role</AlertTitle>
                                             <AlertDescription color="blue.300" fontSize="sm">
                                                 <VStack align="start" spacing={1} mt={2}>
-                                                    <Text><strong>Organizer:</strong> Can create and manage events</Text>
-                                                    <Text><strong>Admin:</strong> Full access including team management</Text>
+                                                    <Text><strong>Organizer:</strong> Can create and manage events only</Text>
                                                 </VStack>
                                             </AlertDescription>
                                         </Box>
@@ -252,21 +252,6 @@ const InviteMemberModal = ({ isOpen, onClose, onInvite, isOwner }: InviteMemberM
                                             />
                                         </InputGroup>
                                         <FormErrorMessage>{errors.email}</FormErrorMessage>
-                                    </FormControl>
-
-                                    <FormControl isInvalid={!!(errors.role && touched.role)} isRequired>
-                                        <FormLabel color="gray.300">Role</FormLabel>
-                                        <Field
-                                            as={Select}
-                                            name="role"
-                                            bg={inputBg}
-                                            borderColor={borderColor}
-                                            _hover={{ borderColor: "yellow.400" }}
-                                        >
-                                            <option value="ORGANIZER">Organizer</option>
-                                            {isOwner && <option value="ADMIN">Admin</option>}
-                                        </Field>
-                                        <FormErrorMessage>{errors.role}</FormErrorMessage>
                                     </FormControl>
                                 </VStack>
                             </ModalBody>
@@ -303,7 +288,6 @@ const MemberCard = ({ member, currentUserId, onRemove, ownerId }: MemberCardProp
     const isCurrentUser = member.id === currentUserId;
     const isCompanyOwner = Number(member.id) === ownerId;
     const isOwner = Number(currentUserId) === ownerId;
-     console.log("isOwner:", isOwner, "isCompanyOwner:", isCompanyOwner, "isCurrentUser:", isCurrentUser,member.id,currentUserId,ownerId);
 
 
     const getRoleColor = (role: string) => {
@@ -470,6 +454,8 @@ const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
 
             const res = await api().post("/company/invite-organizer", payload);
 
+            await refreshCompany();
+
             if (res.status === 200 || res.status === 201) {
                 //setInvitedEmails(prev => [...prev, values.email]);
                 Toast({
@@ -491,9 +477,10 @@ const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
 
     const handleRemoveMember = async (member: any) => {
         try {
-            console.log(member)
+     
             const res = await api().delete(`/users/${member.userId}`); // 👈 deleting user by ID
-            console.log(res);
+            await refreshCompany();
+          
 
             if (res.status === 200) {
                 Toast({
@@ -650,7 +637,7 @@ const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
                             >
                                 <AnimatePresence>
                                     {allMembers.map((member, index) => (
-                                        console.log("Rendering member:", member),
+                                
                                         <MotionBox
                                             key={member.id}
                                             initial={{ opacity: 0, y: 20 }}

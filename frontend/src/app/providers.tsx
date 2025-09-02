@@ -1,6 +1,7 @@
 "use client";
 
 import { ChakraProvider, extendTheme, ThemeConfig } from "@chakra-ui/react";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 const config: ThemeConfig = {
   initialColorMode: "dark",
@@ -26,5 +27,9 @@ const theme = extendTheme({
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <ChakraProvider theme={theme}>{children}</ChakraProvider>;
+  return <ChakraProvider theme={theme}>
+    <AuthGuard>
+    {children}
+    </AuthGuard>
+    </ChakraProvider>;
 }
